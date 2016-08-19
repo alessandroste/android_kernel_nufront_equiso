@@ -494,20 +494,6 @@ config USB_CI13XXX_MSM
 	  dynamically linked module called "ci13xxx_msm" and force all
 	  gadget drivers to also be dynamically linked.
 
-config USB_GADGET_DESIGN_WARE
-	boolean "DESIGN WARE usb device controller"
-	depends on USB && EXPERIMENTAL
-	select USB_OTG
-	select USB_GADGET_DUALSPEED
-	help
-	  This is a DESIGN WARE usb device controller
-
-config USB_DESIGN_WARE
-	tristate
-	depends on USB_GADGET_DESIGN_WARE
-	default USB_GADGET
-	select USB_GADGET_SELECTED
-
 #
 # LAST -- dummy/emulated controller
 #
@@ -1006,5 +992,7 @@ config USB_G_WEBCAM
 	  dynamically linked module called "g_webcam".
 
 endchoice
+
+source "drivers/usb/gadget/dwc/Kconfig"
 
 endif # USB_GADGET
