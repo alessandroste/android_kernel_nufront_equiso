@@ -506,7 +506,6 @@ static long __video_do_ioctl(struct file *file,
 	int use_fh_prio = 0;
 	long ret_prio = 0;
 	long ret = -ENOTTY;
-
 	if (ops == NULL) {
 		printk(KERN_WARNING "videodev: \"%s\" has no ioctl_ops.\n",
 				vfd->name);
@@ -1253,8 +1252,11 @@ static long __video_do_ioctl(struct file *file,
 
 		if (vfh && vfh->ctrl_handler)
 			ret = v4l2_queryctrl(vfh->ctrl_handler, p);
-		else if (vfd->ctrl_handler)
+		else if (vfd->ctrl_handler) {
 			ret = v4l2_queryctrl(vfd->ctrl_handler, p);
+			if(ret < 0 && ops->vidioc_queryctrl)
+				ret = ops->vidioc_queryctrl(file, fh, p);
+		}
 		else if (ops->vidioc_queryctrl)
 			ret = ops->vidioc_queryctrl(file, fh, p);
 		else
@@ -1272,13 +1274,17 @@ static long __video_do_ioctl(struct file *file,
 	case VIDIOC_G_CTRL:
 	{
 		struct v4l2_control *p = arg;
-
-		if (vfh && vfh->ctrl_handler)
+		if (vfh && vfh->ctrl_handler) {
 			ret = v4l2_g_ctrl(vfh->ctrl_handler, p);
-		else if (vfd->ctrl_handler)
+		}
+		else if (vfd->ctrl_handler){
 			ret = v4l2_g_ctrl(vfd->ctrl_handler, p);
-		else if (ops->vidioc_g_ctrl)
+			if(ret < 0 && ops->vidioc_g_ctrl)
+				ret = ops->vidioc_g_ctrl(file, fh, p);
+		}
+		else if (ops->vidioc_g_ctrl){
 			ret = ops->vidioc_g_ctrl(file, fh, p);
+		}
 		else if (ops->vidioc_g_ext_ctrls) {
 			struct v4l2_ext_controls ctrls;
 			struct v4l2_ext_control ctrl;
@@ -1293,8 +1299,9 @@ static long __video_do_ioctl(struct file *file,
 				if (ret == 0)
 					p->value = ctrl.value;
 			}
-		} else
+		} else {
 			break;
+		}
 		if (!ret)
 			dbgarg(cmd, "id=0x%x, value=%d\n", p->id, p->value);
 		else
@@ -1323,6 +1330,8 @@ static long __video_do_ioctl(struct file *file,
 		}
 		if (vfd->ctrl_handler) {
 			ret = v4l2_s_ctrl(NULL, vfd->ctrl_handler, p);
+			if(ret < 0 && ops->vidioc_s_ctrl)
+				ret = ops->vidioc_s_ctrl(file, fh, p);
 			break;
 		}
 		if (ops->vidioc_s_ctrl) {
@@ -2296,7 +2305,6 @@ static long __video_do_ioctl(struct file *file,
 	if (vfd->debug & V4L2_DEBUG_IOCTL_ARG) {
 		if (ret < 0) {
 			v4l_print_ioctl(vfd->name, cmd);
-			printk(KERN_CONT " error %ld\n", ret);
 		}
 	}
 

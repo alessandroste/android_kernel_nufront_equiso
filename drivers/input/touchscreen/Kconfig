@@ -74,6 +74,24 @@ config TOUCHSCREEN_AD7879_I2C
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad7879-i2c.
+config TOUCHSCREEN_GOODIX_BIG
+        tristate "Goodix Big TouchScreen Driver"
+	default y
+	depends on I2C
+	help
+	This is a android driver to support the Gooidx touchscreen.
+
+config TOUCHSCREEN_GOODIX_IAP
+        bool "Goodix GT8xx touchscreen update support"
+	depends on I2C && TOUCHSCREEN_GOODIX_BIG
+	default y
+	help
+	This is a part of Goodix touchscreen driver.The function of this moudle is
+	to update the firmware of GT8XX touchscreen controller.This moudle must
+	be used with the program in user mode of android platform.
+	Say Y here to enable the driver for the touchscreen on the S3C SMDK board.
+	If unsure, say N.
+
 
 config TOUCHSCREEN_AD7879_SPI
 	tristate "support SPI bus connection"
@@ -850,6 +868,13 @@ config TOUCHSCREEN_TPS6507X
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
+
+config TOUCHSCREEN_UNIDISPLAY_TS
+        tristate "Pixcir capacitive touchscreen driver"
+        depends on I2C
+        help
+          Say Y here if you have a Pixcir capacitive based touchscreen
+          controller.
 
 config TOUCHSCREEN_QUANTUM_OBP
 	tristate "Quantum OBP based touchscreens"

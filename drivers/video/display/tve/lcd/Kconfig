@@ -1,0 +1,9 @@
+#
+# TV Encoder CH7025/7026 drivers configuration
+#
+
+config NS115_STICK_LCD_OUT
+	bool "NS115 stick lcd out"
+	depends on NUSMART_TVENCODER
+	help
+		Support HDMI STICK lcd output.

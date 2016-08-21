@@ -1,0 +1,17 @@
+#
+# TV Encoder CH7025/7026 drivers configuration
+#
+
+config CH7025_7026_TVOUT
+	bool "CH7026 TV Encoder Support"
+	depends on NUSMART_TVENCODER
+	help
+		Support Chrontel CH7026 TV Encoder.
+
+config CH7026_TVOUT_VGA
+	bool "Support VGA Output"
+	depends on CH7025_7026_TVOUT
+			
+config CH7026_TVOUT_CVBS
+	bool "Support CVBS Output"
+	depends on CH7025_7026_TVOUT

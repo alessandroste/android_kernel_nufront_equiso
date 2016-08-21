@@ -229,4 +229,11 @@ config BT_WILINK
 
 	  Say Y here to compile support for Texas Instrument's WiLink7 driver
 	  into the kernel or say M to compile it as module.
+
+config BT_BCM_LOWPOWER
+	tristate "Bcm bt lowpower 1.1"
+	depends on BT_HCIUART
+	help
+	  This enables bt low power driver for bcm
+
 endmenu

@@ -373,5 +373,12 @@ config REGULATOR_PALMAS
 	  If you wish to control the regulators on the Palmas series of
 	  chips say Y here.
 
+config REGULATOR_RICOH583
+	tristate "RICOH 583 Power regulators"
+	depends on MFD_RICOH583
+	default n
+	help
+	  This driver supports regulator driver for RICOH583 PMIC.
+
 endif
 

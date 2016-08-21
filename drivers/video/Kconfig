@@ -25,6 +25,9 @@ source "drivers/gpu/stub/Kconfig"
 
 source "drivers/gpu/ion/Kconfig"
 
+
+
+
 config VGASTATE
        tristate
        default n
@@ -86,7 +89,7 @@ config FIRMWARE_EDID
 	 suffer from this problem.
 
 config FB_DDC
-       tristate
+       tristate "Enable ddc"
        depends on FB
        select I2C_ALGOBIT
        select I2C
@@ -314,6 +317,46 @@ config FB_PM2_FIFO_DISCONNECT
 	help
 	  Support the Permedia2 FIFO disconnect feature.
 
+config FB_NS115CLCD
+	tristate "NS115 CLCD support"
+	depends on FB
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+	  This framebuffer device driver is for NS115
+	  Colour LCD controller.
+
+	  If you want to compile this as a module (=code which can be
+	  inserted into and removed from the running kernel), say M
+	  here and read <file:Documentation/kbuild/modules.txt>.
+
+config FB_NUSMARTLCD
+	tristate "NUSMART CLCD support"
+	depends on FB
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+	  This framebuffer device driver is for NUSMART all cpu
+	  Colour LCD controller.
+
+	  If you want to compile this as a module (=code which can be
+	  inserted into and removed from the running kernel), say M
+	  here and read <file:Documentation/kbuild/modules.txt>.
+
+config 1080I_TO_1080P
+        tristate "NS115 LCD force to set 1080i timing to 1080p@60"
+        depends on FB && FB_NUSMARTLCD
+        help
+          Config for set 1080i to 1080p@60.
+
+config USES_FAKE_1080P
+        tristate "Using fake 1080p for NS115 HDMI device"
+        depends on FB && FB_NUSMARTLCD
+        help
+          Config for using fake 1080p.
+
 config FB_ARMCLCD
 	tristate "ARM PrimeCell PL110 support"
 	depends on FB && ARM && ARM_AMBA
@@ -329,6 +372,27 @@ config FB_ARMCLCD
 	  inserted into and removed from the running kernel), say M
 	  here and read <file:Documentation/kbuild/modules.txt>.  The module
 	  will be called amba-clcd.
+
+config FB_ARMHDLCD
+	tristate "ARM High Definition LCD support"
+	depends on FB && ARM
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+	  This framebuffer device driver is for the ARM High Definition
+	  Colour LCD controller.
+
+	  If you want to compile this as a module (=code which can be
+	  inserted into and removed from the running kernel), say M
+	  here and read <file:Documentation/kbuild/modules.txt>.  The module
+	  will be called arm-hdlcd.
+
+config FB_HDMI_NS115
+        tristate "NS115 soc HDMI controller support"
+        depends on FB
+        help
+          Driver for the on-chip NS115 HDMI controller.
 
 config FB_ACORN
 	bool "Acorn VIDC support"
@@ -2417,6 +2481,7 @@ source "drivers/video/omap/Kconfig"
 source "drivers/video/omap2/Kconfig"
 source "drivers/video/exynos/Kconfig"
 source "drivers/video/backlight/Kconfig"
+source "drivers/video/display/Kconfig"
 
 if VT
 	source "drivers/video/console/Kconfig"

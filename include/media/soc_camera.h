@@ -54,6 +54,7 @@ struct soc_camera_device {
 		struct videobuf_queue vb_vidq;
 		struct vb2_queue vb2_vidq;
 	};
+	struct soc_camera_ops *ops;
 };
 
 struct soc_camera_host {
@@ -100,6 +101,10 @@ struct soc_camera_host_ops {
 	int (*set_parm)(struct soc_camera_device *, struct v4l2_streamparm *);
 	int (*enum_fsizes)(struct soc_camera_device *, struct v4l2_frmsizeenum *);
 	unsigned int (*poll)(struct file *, poll_table *);
+	int (*set_ctrl)(struct soc_camera_device *, struct v4l2_control *);
+	int (*get_ctrl)(struct soc_camera_device *, struct v4l2_control *);
+	const struct v4l2_queryctrl *controls;
+	int num_controls;
 };
 
 #define SOCAM_SENSOR_INVERT_PCLK	(1 << 0)
@@ -190,6 +195,16 @@ const struct soc_camera_format_xlate *soc_camera_xlate_by_fourcc(
 struct soc_camera_format_xlate {
 	enum v4l2_mbus_pixelcode code;
 	const struct soc_mbus_pixelfmt *host_fmt;
+};
+
+struct soc_camera_ops {
+	int (*suspend)(struct soc_camera_device *, pm_message_t state);
+	int (*resume)(struct soc_camera_device *);
+	unsigned long (*query_bus_param)(struct soc_camera_device *);
+	int (*set_bus_param)(struct soc_camera_device *, unsigned long);
+	int (*enum_input)(struct soc_camera_device *, struct v4l2_input *);
+	const struct v4l2_queryctrl *controls;
+	int num_controls;
 };
 
 #define SOCAM_SENSE_PCLK_CHANGED	(1 << 0)

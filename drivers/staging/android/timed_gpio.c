@@ -20,6 +20,9 @@
 #include <linux/hrtimer.h>
 #include <linux/err.h>
 #include <linux/gpio.h>
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#include <linux/of_gpio.h>
 
 #include "timed_output.h"
 #include "timed_gpio.h"
@@ -80,15 +83,92 @@ static void gpio_enable(struct timed_output_dev *dev, int value)
 	spin_unlock_irqrestore(&data->lock, flags);
 }
 
+#ifdef CONFIG_USE_OF
+static int timed_gpio_get_devtree_pdata(struct platform_device *pdev,
+                struct timed_gpio_platform_data *pdata)
+{
+	struct device_node *node, *pp;
+	int i;
+	struct timed_gpio *gpios;
+	u32 reg;
+
+	node = pdev->dev.of_node;
+	if (node == NULL)
+		return -ENODEV;
+
+	memset(pdata, 0, sizeof *pdata);
+	/* First count the subnodes */
+	pdata->num_gpios = 0;
+	pp = NULL;
+	while ((pp = of_get_next_child(node, pp)))
+		pdata->num_gpios++;
+
+	if (pdata->num_gpios == 0)
+		return -ENODEV;
+
+	gpios = kzalloc(pdata->num_gpios * (sizeof *gpios), GFP_KERNEL);
+	if (!gpios)
+		return -ENOMEM;
+
+	pp = NULL;
+	i = 0;
+	while ((pp = of_get_next_child(node, pp))) {
+
+		gpios[i].name=of_get_property(node,"name",NULL);
+		if (of_property_read_u32(pp, "gpio", &reg)) {
+			printk(KERN_ERR "%s:Read node gpio failed\n",__func__);
+			goto out_fail;
+        }
+		gpios[i].gpio=reg;
+
+		if (of_property_read_u32(pp, "max_timeout", &reg)) {
+			printk(KERN_ERR "%s:Read node max_timeout failed\n",__func__);
+			goto out_fail;
+        }
+		gpios[i].max_timeout=reg;
+
+		if (of_property_read_u32(pp, "active_low", &reg)) {
+            printk(KERN_ERR "%s:Read node active_low failed\n",__func__);
+			goto out_fail;
+        }
+		gpios[i].active_low=reg;
+
+		//printk(KERN_INFO"gpios[%d]:\n name:%s\n gpio:%d\n max_timeout:%d\n active_low:%d",
+		//				i,gpios[i].name, gpios[i].gpio,gpios[i].max_timeout,gpios[i].active_low);
+
+		i++;
+	}
+
+	pdata->gpios=gpios;
+	return 0;
+
+out_fail:
+	kfree(gpios);
+	return -ENODEV;
+}
+#else
+static int timed_gpio_get_devtree_pdata(struct platform_device *pdev,
+                struct timed_gpio_platform_data *pdata)
+{
+	return -ENODEV;
+}
+#endif
+
 static int timed_gpio_probe(struct platform_device *pdev)
 {
 	struct timed_gpio_platform_data *pdata = pdev->dev.platform_data;
 	struct timed_gpio *cur_gpio;
 	struct timed_gpio_data *gpio_data, *gpio_dat;
+	struct timed_gpio_platform_data alt_pdata;
 	int i, ret;
+	int error;
 
-	if (!pdata)
-		return -EBUSY;
+	if (!pdata) {
+		error = timed_gpio_get_devtree_pdata(pdev, &alt_pdata);
+        if (error)
+			return -EBUSY;
+		pdata = &alt_pdata;
+	}
 
 	gpio_data = kzalloc(sizeof(struct timed_gpio_data) * pdata->num_gpios,
 			GFP_KERNEL);
@@ -152,12 +232,23 @@ static int timed_gpio_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#if defined(CONFIG_OF)
+static const struct of_device_id timed_gpio_of_match[] __devinitconst = {
+	{ .compatible = "nufront,timed-gpio", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, timed_gpio_of_match);
+#else
+#define timed_gpio_of_match NULL
+#endif
+
 static struct platform_driver timed_gpio_driver = {
 	.probe		= timed_gpio_probe,
 	.remove		= timed_gpio_remove,
 	.driver		= {
 		.name		= TIMED_GPIO_NAME,
 		.owner		= THIS_MODULE,
+		.of_match_table = timed_gpio_of_match,
 	},
 };
 

@@ -390,7 +390,7 @@ config CPU_PJ4
 
 # ARMv6
 config CPU_V6
-	bool "Support ARM V6 processor" if ARCH_INTEGRATOR || MACH_REALVIEW_EB || MACH_REALVIEW_PBX
+	bool "Support ARM V6 processor" if ARCH_INTEGRATOR || MACH_REALVIEW_EB || MACH_REALVIEW_PBX || ARCH_NS115 || ARCH_NS2816 || ARCH_TL7689
 	select CPU_32v6
 	select CPU_ABRT_EV6
 	select CPU_PABRT_V6
@@ -417,7 +417,7 @@ config CPU_V6K
 
 # ARMv7
 config CPU_V7
-	bool "Support ARM V7 processor" if ARCH_INTEGRATOR || MACH_REALVIEW_EB || MACH_REALVIEW_PBX
+	bool "Support ARM V7 processor" if ARCH_INTEGRATOR || MACH_REALVIEW_EB || MACH_REALVIEW_PBX || ARCH_NS115 || ARCH_NS2816 || ARCH_TL7689
 	select CPU_32v6K
 	select CPU_32v7
 	select CPU_ABRT_EV7
@@ -883,7 +883,7 @@ config CACHE_XSC3L2
 
 config ARM_L1_CACHE_SHIFT_6
 	bool
-	default y if CPU_V7
+#	default y if CPU_V7
 	help
 	  Setting ARM L1 cache line size to 64 Bytes.
 

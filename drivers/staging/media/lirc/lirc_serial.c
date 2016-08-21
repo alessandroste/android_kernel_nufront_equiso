@@ -66,6 +66,7 @@
 #include <linux/poll.h>
 #include <linux/platform_device.h>
 
+#include <asm/system.h>
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/fcntl.h>
@@ -78,6 +79,12 @@
 /* ftp://download.intel.com/design/network/manuals/25248005.pdf */
 #define UART_IE_IXP42X_UUE   0x40 /* IXP42X UART Unit enable */
 #define UART_IE_IXP42X_RTOIE 0x10 /* IXP42X Receiver Data Timeout int.enable */
+
+#ifdef CONFIG_LIRC_SERIAL_NS115
+#include <mach/irqs.h>
+#include <mach/board-ns115.h>
+#include <asm/io.h>
+#endif
 
 #include <media/lirc.h>
 #include <media/lirc_dev.h>
@@ -101,18 +108,19 @@ struct lirc_serial {
 #define LIRC_ANIMAX		3
 #define LIRC_IGOR		4
 #define LIRC_NSLU2		5
+#define LIRC_NS115		6
 
 /*** module parameters ***/
-static int type;
+static int type = 6;
 static int io;
 static int irq;
-static bool iommap;
+static int iommap;
 static int ioshift;
-static bool softcarrier = 1;
-static bool share_irq;
-static bool debug;
+static int softcarrier = 1;
+static int share_irq;
+static int debug;
 static int sense = -1;	/* -1 = auto, 0 = active high, 1 = active low */
-static bool txsense;	/* 0 = active high, 1 = active low */
+static int txsense;	/* 0 = active high, 1 = active low */
 
 #define dprintk(fmt, args...)					\
 	do {							\
@@ -217,6 +225,26 @@ static struct lirc_serial hardware[] = {
 	},
 #endif
 
+
+#ifdef CONFIG_LIRC_SERIAL_NS115
+	[LIRC_NS115] = 
+	{
+		.signal_pin        = UART_MSR_CTS,
+		.signal_pin_change = UART_MSR_DCTS,
+		.on  = (UART_MCR_RTS | UART_MCR_OUT2 | UART_MCR_DTR),
+		.off = (UART_MCR_RTS | UART_MCR_OUT2),
+		.send_pulse = send_pulse_homebrew,
+		.send_space = send_space_homebrew,
+#ifdef CONFIG_LIRC_SERIAL_TRANSMITTER
+		.features    = (LIRC_CAN_SET_SEND_DUTY_CYCLE |
+		LIRC_CAN_SET_SEND_CARRIER |
+		LIRC_CAN_SEND_PULSE | LIRC_CAN_REC_MODE2)
+#else
+		.features    = LIRC_CAN_REC_MODE2
+#endif
+	},
+#endif
+
 };
 
 #define RS_ISR_PASS_LIMIT 256
@@ -235,11 +263,13 @@ static struct lirc_serial hardware[] = {
 #define RBUF_LEN 256
 
 static struct timeval lasttv = {0, 0};
+static struct timeval right_lasttv = {0, 0};
 
 static struct lirc_buffer rbuf;
 
 static unsigned int freq = 38000;
 static unsigned int duty_cycle = 50;
+static unsigned int false_time = 0;
 
 /* Initialized in init_timing_params() */
 static unsigned long period;
@@ -292,7 +322,12 @@ static u8 sinp(int offset)
 		/* the register is memory-mapped */
 		offset <<= ioshift;
 
+
+#ifdef CONFIG_LIRC_SERIAL_NS115
+	return readl(io + offset);
+#else
 	return inb(io + offset);
+#endif
 }
 
 /* write serial output packet (1 byte) of value to register offset */
@@ -302,7 +337,11 @@ static void soutp(int offset, u8 value)
 		/* the register is memory-mapped */
 		offset <<= ioshift;
 
+#ifdef CONFIG_LIRC_SERIAL_NS115
+	writel(value, io + offset);
+#else
 	outb(value, io + offset);
+#endif
 }
 
 static void on(void)
@@ -605,6 +644,8 @@ static void frbwrite(int l)
 	static int pulse, space;
 	static unsigned int ptr;
 
+	//pr_info("lirc rcv: %d %8dus\n", l & PULSE_BIT ? 1:0 , l & ~(PULSE_BIT));
+
 	if (ptr > 0 && (l & PULSE_BIT)) {
 		pulse += l & PULSE_MASK;
 		if (pulse > 250) {
@@ -738,10 +779,85 @@ static irqreturn_t irq_handler(int i, void *blah)
 				data = (int) (deltv*1000000 +
 					       tv.tv_usec -
 					       lasttv.tv_usec);
+			
+#ifdef CONFIG_LIRC_SERIAL_NS115_NEC_STANDAR
+				if(false_time == 2)
+				{
+					false_time = 0;
+				}
+				/*{
+					deltv = tv.tv_sec-right_lasttv.tv_sec;
+						data = (int) (deltv*1000000 +
+					       tv.tv_usec -
+					       right_lasttv.tv_usec);
+						false_time = 0;
+						pr_info("false_time =2 \n");
+				}*/
+				
+			/*if(dcd^sense ? data : (data|PULSE_BIT) > 350 && dcd^sense ? data : (data|PULSE_BIT) < 10000)
+			{
+				frbwrite(dcd^sense ? data : (data|PULSE_BIT));
+				lasttv = tv;
+				last_dcd = dcd;
+				wake_up_interruptible(&rbuf.wait_poll);
+			}
+
+			else
+			{
+				lasttv = tv;
+				right_lasttv = lasttv;
+				last_dcd = dcd;
+				false_time += 1;
+			}*/
+
+			if(!dcd^sense && data > 350)
+			{
+				frbwrite(data|PULSE_BIT);
+				lasttv = tv;
+				last_dcd = dcd;
+				wake_up_interruptible(&rbuf.wait_poll);
+			}
+
+			if(!dcd^sense && data < 350)
+			{
+				lasttv = tv;
+				//right_lasttv = lasttv;
+				last_dcd = dcd;
+				false_time += 1;
+				pr_info("pulse false\n");
+			}
+
+
+			if(dcd^sense && false_time)
+			{
+				lasttv = tv;
+				last_dcd = dcd;
+				false_time += 1;
+				pr_info("space false:%d\n",data);
+			}
+
+			
+			if(dcd^sense && data > 350 && data < 10000 && false_time == 0)
+			{
+				frbwrite(dcd^sense ? data : (data|PULSE_BIT));
+				lasttv = tv;
+				last_dcd = dcd;
+				wake_up_interruptible(&rbuf.wait_poll);
+			}
+
+			if(dcd^sense && data > 80000 && false_time == 0)
+			{
+				frbwrite(dcd^sense ? data : (data|PULSE_BIT));
+				lasttv = tv;
+				last_dcd = dcd;
+				wake_up_interruptible(&rbuf.wait_poll);
+			}
+#else
 			frbwrite(dcd^sense ? data : (data|PULSE_BIT));
 			lasttv = tv;
 			last_dcd = dcd;
 			wake_up_interruptible(&rbuf.wait_poll);
+#endif
 		}
 	} while (!(sinp(UART_IIR) & UART_IIR_NO_INT)); /* still pending ? */
 	return IRQ_HANDLED;
@@ -840,7 +956,7 @@ static int __devinit lirc_serial_probe(struct platform_device *dev)
 	int i, nlow, nhigh, result;
 
 	result = request_irq(irq, irq_handler,
-			     (share_irq ? IRQF_SHARED : 0),
+			     IRQF_DISABLED | (share_irq ? IRQF_SHARED : 0),
 			     LIRC_DRIVER_NAME, (void *)&hardware);
 	if (result < 0) {
 		if (result == -EBUSY)
@@ -875,6 +991,9 @@ static int __devinit lirc_serial_probe(struct platform_device *dev)
 		goto exit_free_irq;
 	}
 
+#ifdef CONFIG_LIRC_SERIAL_NS115
+	io = ioremap_nocache(iommap, 8 << ioshift);
+#endif
 	result = hardware_init_port();
 	if (result < 0)
 		goto exit_release_region;
@@ -904,8 +1023,10 @@ static int __devinit lirc_serial_probe(struct platform_device *dev)
 		printk(KERN_INFO LIRC_DRIVER_NAME  ": auto-detected active "
 		       "%s receiver\n", sense ? "low" : "high");
 	} else
+	{
 		printk(KERN_INFO LIRC_DRIVER_NAME  ": Manually using active "
 		       "%s receiver\n", sense ? "low" : "high");
+	}
 
 	dprintk("Interrupt %d, port %04x obtained\n", irq, io);
 	return 0;
@@ -1216,6 +1337,13 @@ static int __init lirc_serial_init_module(void)
 		ioshift = ioshift ? ioshift : 2;
 		break;
 #endif
+#ifdef CONFIG_LIRC_SERIAL_NS115
+	case LIRC_NS115:
+		irq = irq ? irq : IRQ_NS115_UART1_INTR;
+		iommap = iommap ? iommap : NS115_UART1_BASE;
+		ioshift = ioshift ? ioshift : 2;
+		break;
+#endif
 	default:
 		return -EINVAL;
 	}
@@ -1225,6 +1353,9 @@ static int __init lirc_serial_init_module(void)
 		case LIRC_IGOR:
 #ifdef CONFIG_LIRC_SERIAL_NSLU2
 		case LIRC_NSLU2:
+#endif
+#ifdef CONFIG_LIRC_SERIAL_NS115
+		case LIRC_NS115:
 #endif
 			hardware[type].features &=
 				~(LIRC_CAN_SET_SEND_DUTY_CYCLE|

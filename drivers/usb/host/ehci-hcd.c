@@ -1255,12 +1255,18 @@ MODULE_LICENSE ("GPL");
 
 #ifdef CONFIG_PCI
 #include "ehci-pci.c"
-#define	PCI_DRIVER		ehci_pci_driver
+#define PCI_DRIVER		ehci_pci_driver
+#endif
+
+#ifdef CONFIG_USB_EHCI_NS115
+#include "ehci-nusmart.c"
+#define PLATFORM_DRIVER		ehci_nusmart_driver
+
 #endif
 
 #ifdef CONFIG_USB_EHCI_FSL
 #include "ehci-fsl.c"
-#define	PLATFORM_DRIVER		ehci_fsl_driver
+#define PLATFORM_DRIVER		ehci_fsl_driver
 #endif
 
 #ifdef CONFIG_USB_EHCI_MXC
@@ -1275,17 +1281,17 @@ MODULE_LICENSE ("GPL");
 
 #ifdef CONFIG_MIPS_ALCHEMY
 #include "ehci-au1xxx.c"
-#define	PLATFORM_DRIVER		ehci_hcd_au1xxx_driver
+#define PLATFORM_DRIVER		ehci_hcd_au1xxx_driver
 #endif
 
 #ifdef CONFIG_USB_EHCI_HCD_OMAP
 #include "ehci-omap.c"
-#define        PLATFORM_DRIVER         ehci_hcd_omap_driver
+#define PLATFORM_DRIVER		ehci_hcd_omap_driver
 #endif
 
 #ifdef CONFIG_PPC_PS3
 #include "ehci-ps3.c"
-#define	PS3_SYSTEM_BUS_DRIVER	ps3_ehci_driver
+#define PS3_SYSTEM_BUS_DRIVER	ps3_ehci_driver
 #endif
 
 #ifdef CONFIG_USB_EHCI_HCD_PPC_OF
@@ -1300,22 +1306,22 @@ MODULE_LICENSE ("GPL");
 
 #ifdef CONFIG_PLAT_ORION
 #include "ehci-orion.c"
-#define	PLATFORM_DRIVER		ehci_orion_driver
+#define PLATFORM_DRIVER		ehci_orion_driver
 #endif
 
 #ifdef CONFIG_ARCH_IXP4XX
 #include "ehci-ixp4xx.c"
-#define	PLATFORM_DRIVER		ixp4xx_ehci_driver
+#define PLATFORM_DRIVER		ixp4xx_ehci_driver
 #endif
 
 #ifdef CONFIG_USB_W90X900_EHCI
 #include "ehci-w90x900.c"
-#define	PLATFORM_DRIVER		ehci_hcd_w90x900_driver
+#define PLATFORM_DRIVER		ehci_hcd_w90x900_driver
 #endif
 
 #ifdef CONFIG_ARCH_AT91
 #include "ehci-atmel.c"
-#define	PLATFORM_DRIVER		ehci_atmel_driver
+#define PLATFORM_DRIVER		ehci_atmel_driver
 #endif
 
 #ifdef CONFIG_USB_OCTEON_EHCI
@@ -1330,7 +1336,7 @@ MODULE_LICENSE ("GPL");
 
 #ifdef CONFIG_ARCH_VT8500
 #include "ehci-vt8500.c"
-#define	PLATFORM_DRIVER		vt8500_ehci_driver
+#define PLATFORM_DRIVER		vt8500_ehci_driver
 #endif
 
 #ifdef CONFIG_PLAT_SPEAR
@@ -1345,7 +1351,7 @@ MODULE_LICENSE ("GPL");
 
 #ifdef CONFIG_USB_EHCI_HCD_PMC_MSP
 #include "ehci-pmcmsp.c"
-#define	PLATFORM_DRIVER		ehci_hcd_msp_driver
+#define PLATFORM_DRIVER		ehci_hcd_msp_driver
 #endif
 
 #ifdef CONFIG_USB_EHCI_TEGRA
@@ -1370,7 +1376,7 @@ MODULE_LICENSE ("GPL");
 
 #ifdef CONFIG_USB_EHCI_MV
 #include "ehci-mv.c"
-#define        PLATFORM_DRIVER         ehci_mv_driver
+#define PLATFORM_DRIVER		ehci_mv_driver
 #endif
 
 #ifdef CONFIG_MACH_LOONGSON1

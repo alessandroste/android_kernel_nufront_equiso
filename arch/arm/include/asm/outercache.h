@@ -33,6 +33,8 @@ struct outer_cache_fns {
 #ifdef CONFIG_OUTER_CACHE_SYNC
 	void (*sync)(void);
 #endif
+	void (*shutdown)(void);
+	void (*restart)(void);
 	void (*set_debug)(unsigned long);
 	void (*resume)(void);
 };
@@ -81,6 +83,17 @@ static inline void outer_resume(void)
 		outer_cache.resume();
 }
 
+static inline void outer_shutdown(void)
+{
+	if (outer_cache.shutdown)
+		outer_cache.shutdown();
+}
+
+static inline void outer_restart(void)
+{
+	if (outer_cache.restart)
+		outer_cache.restart();
+}
 #else
 
 static inline void outer_inv_range(phys_addr_t start, phys_addr_t end)

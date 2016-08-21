@@ -1,0 +1,118 @@
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	interrupt-parent = <&intc>;
+	aliases { };
+	intc: interrupt-controller{
+		compatible = "nufront,ns115-gic";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+		reg = <0x05041000 0x1000 >;
+	};
+	memory@0 {
+		device_type = "memory";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x80000000 0x20000000>;
+	};
+	memory@1 {
+		device_type = "memory";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0xA0000000 0x20000000>;
+	};
+	memory@2 {
+		device_type = "memory";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0xC0000000 0x20000000>;
+	};
+	memory@3 {
+		device_type = "memory";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0xE000000 0x20000000>;
+	};
+	i2c@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nufront,designware-i2c";
+		reg = <0x06100000 0x10000>;
+		interrupts = < 91 >;
+		type = "i2c";
+		id = <0>;
+	};
+
+	i2c@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nufront,designware-i2c";
+		reg = <0x06110000 0x10000>;
+		interrupts = < 92 >;
+		type = "i2c";
+		id = <1>;
+	};
+
+	i2c@2 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nufront,designware-i2c";
+		reg = <0x06120000 0x10000>;
+		interrupts = < 93 >;
+		type = "i2c";
+		id = <2>;
+	};
+
+	i2c@3 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nufront,designware-i2c";
+		reg = <0x06130000 0x10000>;
+		interrupts = < 94 >;
+		type = "i2c";
+		id = <3>;
+	};
+
+	sdmmc@0 {
+		#address-cells 	= <1>;
+		#size-cells 	= <0>;
+		compatible 	= "nufront,ns115-sdmmc";
+		reg 		= <0x05070000 0x10000>;
+		interrupts 	= < 96 >;
+		ref_clk 	= <100000000>;
+		nr_slots 	= <3>;
+		gpio		= <57>;
+		detect_delay_ms = <2000>;
+
+		slot@0{
+			ctype          = <1>;//SD_CARD,
+			caps           = <1>;//MMC_CAP_4_BIT_DATA
+			freq           = <25000000>;
+			ocr_avail      = <0xff8000>;     //2.6V-3.7V
+			force_rescan   = <0>;
+		};
+		slot@1{
+			ctype          = <4>;//EMMC_CARD,
+			caps           = <0x142>;//MMC_CAP_NONREMOVABLE|MMC_CAP_8_BIT_DATA
+			freq           = <25000000>;
+			ocr_avail      = <0xff8000>;     //2.6V-3.7V
+			force_rescan   = <1>;
+		};
+		slot@2{
+			ctype          = <8>;//SDIO_CARD,
+			caps           = <0x101>;//MMC_CAP_NONREMOVABLE|MMC_CAP_4_BIT_DATA
+			pm_caps        = <0x5>;//MMC_PM_KEEP_POWER|MMC_PM_IGNORE_PM_NOTIFY
+			freq           = <25000000>;
+			ocr_avail      = <0xff8000>;     //2.6V-3.7V
+			force_rescan   = <1>;
+		};
+
+	};
+	camera@0{
+		compatible	= "nufront,soc_camera";
+	};
+	camera@1{
+		compatible	= "nufront,soc_camera";
+	};
+};

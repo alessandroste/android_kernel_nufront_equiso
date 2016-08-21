@@ -52,6 +52,13 @@ static inline void gic_init(unsigned int nr, int start,
 	gic_init_bases(nr, start, dist, cpu, 0, NULL);
 }
 
+static inline void of_gic_init(unsigned int nr, int start,
+			    void __iomem *dist , void __iomem *cpu,
+			    struct device_node *node)
+{
+	gic_init_bases(nr, start, dist, cpu, 0, node);
+}
+
 #endif
 
 #endif

@@ -1,0 +1,225 @@
+/dts-v1/;
+
+
+/include/ "nufront.dtsi"
+/include/ "nufront-pmic.dtsi"
+/ {
+	model = "NUFRONT NS115 REF board";
+	compatible = "nufront,ns115";
+
+	chosen {
+		bootargs = "root=/dev/sda2 rw rootwait mem=776M console=ttyS0,115200 init=/init";
+	};
+
+	i2c@0{
+
+		speed = <1>;//standard speed
+/*P/L-sensors*/
+		tritonFN {
+
+			compatible = "tritonFN";
+			interrupts = <36>;
+			reg = <0x39>;
+		};
+
+/*GROY*/
+		mpu3050 {
+			compatible = "mpu3050";
+			interrupts = <67>;
+			reg = <0x68>;
+			int_config = <0x10>;
+			orientation = <0 0xff 0 1 0 0 0 0 1>;
+		};
+/*G-ensors*/
+		bma250 {
+			compatible = "bma250";
+			interrupts = <68>;
+			reg = <0x18>;
+			bus = <0x01>;
+			orientation = <1 0 0 0 1 0 0 0 1>;
+		};
+
+		kxtj9 {
+			compatible = "kxtj9";
+			interrupts = <67>;
+			reg = <0x0f>;
+			min_interval = <5>;
+			poll_interval = <20>;
+			device_map = <1>;
+			res_12bit = <0x40>;
+			g_range = <0>;
+		};
+/*compass*/
+	      ami304 {
+		      compatible = "ami30x";
+		      interrupts = <66>;
+		      reg = <0x0e>;
+		};
+
+/*AudioCodec rt5631*/
+		rt5631 {
+			compatible = "rt5631";
+			reg = <0x1a>;
+			mute_amp{
+				compatible	= "nufront,ns115-mute-amp";
+				gpio_num = <63>;
+			};
+		};
+
+
+	};
+
+	i2c@1 {
+		speed = <1>;
+	};
+
+	i2c@2 {
+		speed = <1>;
+		cm3212 {
+			compatible = "cm3212";
+			reg = <0x48>;
+		};
+	};
+
+	i2c@3 {
+
+		speed = <2>;//fast speed
+		Goodix-TS{
+				compatible = "Goodix-TS";
+				interrupts = <48>;
+				reset_gpio = <49>;
+				reg = <0x55>;
+			};
+
+/*
+		ft5x0x_ts{
+				compatible = "ft5x0x_ts";
+				interrupts = <48>;
+				reset_gpio = <49>;
+				reg = <0x38>;
+			  };
+*/
+	};
+
+	sdmmc@0 {
+		slot@0{
+			freq           = <25000000>;
+		};
+		slot@1{
+			freq           = <25000000>;
+		};
+		slot@2{
+			freq           = <25000000>;
+		};
+	};
+
+	bluetooth{
+		compatible	= "nufront,nw53_bt_power";
+		interrupts	= <38>;
+		reg		= <0x0 0x0>;
+		ap_wake		= <6>;
+		bt_wake		= <54>;
+		reset_gpio	= <53>;
+		shutdown_gpio	= <63>;
+		rfkill_name	= "rfkill_gpio";
+		exist		= "true";
+	};
+
+	camera@0{
+		sensor_name	= "gc0329";
+		i2c_addr	= <0x31>;
+		bus_id		= <0>;
+		i2c_adapter_id  = <1>;
+		regulators	= "vdd_cam0_io_1v8";
+		num_regulators	= <1>;
+		power_on	= <107 0>;
+		reset		= <106 1>;
+		i2c_connect	= <94 1>;
+		clk_id		= "ns115_alt0";
+		clk_rate	= <24000000>;
+	};
+	camera@1{
+		sensor_name	= "ov5640";
+		i2c_addr	= <0x3c>;
+		bus_id		= <0>;
+		i2c_adapter_id  = <1>;
+		regulators	= "vdd_cam1_io_1v8";
+		num_regulators	= <1>;
+		power_on	= <109 0>;
+		reset		= <108 1>;
+		i2c_connect	= <94 1>;
+		clk_id		= "ns115_alt0";
+		clk_rate	= <24000000>;
+		test		= "test for ov5640";
+	};
+
+	timed-gpio {
+		compatible  = "nufront,timed-gpio";
+		vibrator {
+			name = "vibrator";
+			gpio = <35>;
+			max_timeout = <5000000>;
+			active_low  = <0>;
+		};
+	};
+
+	backlight{
+		compatible	= "nufront,ns115-backlight";
+		default_intensity=<6>;
+	};
+
+	gpio-keys{
+		compatible	= "nufront,ns115-gpio-keys";
+		keys_count	= <2>;
+		key_code_1	= <114>;/*volumn down*/
+		key_code_2	= <115>;/*volumn up*/
+		key_gpio_1	= <26 0>;/*vol up gpio*/
+		key_gpio_2	= <28 0>;/*vol down gpio*/
+	};
+
+
+	pinmux{
+		compatible	= "nufront,ns115-pinmux";
+		setting_table	= <0xaa000000 0x0 0x1000000 0x14000 0x0 0x6aaa9100 0x14141 0x22a010 0x0 0x0>;
+	};
+
+
+
+//android config option
+	hdmi{
+		dual_display = "true";
+	};
+
+
+	android{
+		usb_ethernet_support	= "true";
+		setting{
+			gps			= "true";
+			wifi			= "true";
+			wifi_sleep_policy	= "1";
+			screen_timeout		= "30000";
+			battery_info		= "true";
+			gesture			= "flase";
+			speak_password		= "false";
+			fix_direction		= "false";
+			keep_srceen_on		= "false";
+		};
+		policy{
+			fix_direction	= "true";
+		};
+		systemui{
+			shutdown_btn	= "true";
+			voice_btn	= "true";
+			screencap_btn	= "true";
+			screen_scale	= "true";
+		};
+		antutu{
+			exist = "true";
+		};
+	};
+	sensor{
+		acceleromer="kionix";
+		lightsensor="cm3602";
+		compass="ami304";
+	};
+};

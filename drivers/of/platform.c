@@ -143,7 +143,7 @@ struct platform_device *of_device_alloc(struct device_node *np,
 	while (of_address_to_resource(np, num_reg, &temp_res) == 0)
 		num_reg++;
 	num_irq = of_irq_count(np);
-
+	pr_debug("%s irq num=%d\n",bus_id,num_irq);
 	/* Populate the resource table */
 	if (num_irq || num_reg) {
 		res = kzalloc(sizeof(*res) * (num_irq + num_reg), GFP_KERNEL);
@@ -205,6 +205,12 @@ struct platform_device *of_platform_device_create_pdata(
 	dev->archdata.dma_mask = 0xffffffffUL;
 #endif
 	dev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
+	/*
+	*if device doesn't have parent,set it to platform_bus
+	*so device attribute is in sys/devices/platform/
+	*/
+	if (!dev->dev.parent)
+		dev->dev.parent = &platform_bus;
 	dev->dev.bus = &platform_bus_type;
 	dev->dev.platform_data = platform_data;
 

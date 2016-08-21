@@ -1079,6 +1079,10 @@ static int mmc_blk_err_check(struct mmc_card *card,
 				return MMC_BLK_ECC_ERR;
 			return MMC_BLK_DATA_ERR;
 		} else {
+			if (brq->data.blocks > 1) {
+				   /* Hack to redo transfer one sector at a time */
+				   return MMC_BLK_DATA_ERR;
+			}
 			return MMC_BLK_CMD_ERR;
 		}
 	}
@@ -1355,7 +1359,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 		case MMC_BLK_ECC_ERR:
 			if (brq->data.blocks > 1) {
 				/* Redo read one sector at a time */
-				pr_warning("%s: retrying using single block read\n",
+				pr_warning("%s: retrying using single block transfer\n",
 					   req->rq_disk->disk_name);
 				disable_multi = 1;
 				break;
@@ -1491,7 +1495,8 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
 	 * index anymore so we keep track of a name index.
 	 */
 	if (!subname) {
-		md->name_idx = find_first_zero_bit(name_use, max_devices);
+		//md->name_idx = find_first_zero_bit(name_use, max_devices);
+		md->name_idx = card->host->index;
 		__set_bit(md->name_idx, name_use);
 	} else
 		md->name_idx = ((struct mmc_blk_data *)

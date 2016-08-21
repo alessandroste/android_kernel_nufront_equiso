@@ -23,6 +23,7 @@
 #include <linux/kernel.h>
 #include <linux/utsname.h>
 #include <linux/platform_device.h>
+#include <linux/wakelock.h>
 
 #include <linux/usb/ch9.h>
 #include <linux/usb/composite.h>
@@ -115,6 +116,7 @@ static struct class *android_class;
 static struct android_dev *_android_dev;
 static int android_bind_config(struct usb_configuration *c);
 static void android_unbind_config(struct usb_configuration *c);
+static struct wake_lock g_wake_lock;
 
 /* string IDs are assigned dynamically */
 #define STRING_MANUFACTURER_IDX		0
@@ -162,6 +164,12 @@ static struct usb_configuration android_config_driver = {
 	.bMaxPower	= 0xFA, /* 500ma */
 };
 
+static int g_flag_conn = 0;
+int is_usb_connected()
+{
+	return g_flag_conn;
+}
+
 static void android_work(struct work_struct *data)
 {
 	struct android_dev *dev = container_of(data, struct android_dev, work);
@@ -175,9 +183,16 @@ static void android_work(struct work_struct *data)
 	spin_lock_irqsave(&cdev->lock, flags);
 	if (cdev->config)
 		uevent_envp = configured;
-	else if (dev->connected != dev->sw_connected)
+	else if (dev->connected != dev->sw_connected) {
+		if (dev->connected) {
+			wake_lock(&g_wake_lock);
+		} else {
+			wake_unlock(&g_wake_lock);
+		}
 		uevent_envp = dev->connected ? connected : disconnected;
+	}
 	dev->sw_connected = dev->connected;
+	g_flag_conn = dev->connected;
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
 	if (uevent_envp) {
@@ -658,8 +673,11 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	if (!config)
 		return -ENOMEM;
 
-	config->fsg.nluns = 1;
+	config->fsg.nluns = 2;
 	config->fsg.luns[0].removable = 1;
+	config->fsg.luns[0].nofua = 1;
+	config->fsg.luns[1].removable = 1;
+	config->fsg.luns[1].nofua = 1;
 
 	common = fsg_common_init(NULL, cdev, &config->fsg);
 	if (IS_ERR(common)) {
@@ -670,6 +688,9 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	err = sysfs_create_link(&f->dev->kobj,
 				&common->luns[0].dev.kobj,
 				"lun");
+	err |= sysfs_create_link(&f->dev->kobj,
+				&common->luns[1].dev.kobj,
+				"lun1");
 	if (err) {
 		kfree(config);
 		return err;
@@ -1303,7 +1324,12 @@ static int __init init(void)
 	composite_driver.setup = android_setup;
 	composite_driver.disconnect = android_disconnect;
 
-	return usb_composite_probe(&android_usb_driver, android_bind);
+	err = usb_composite_probe(&android_usb_driver, android_bind);
+	if (err)
+		return err;
+
+	wake_lock_init(&g_wake_lock, WAKE_LOCK_SUSPEND, "android_gadget");
+	return 0;
 }
 module_init(init);
 
@@ -1313,5 +1339,6 @@ static void __exit cleanup(void)
 	class_destroy(android_class);
 	kfree(_android_dev);
 	_android_dev = NULL;
+	wake_lock_destroy(&g_wake_lock);
 }
 module_exit(cleanup);

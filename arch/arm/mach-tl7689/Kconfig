@@ -1,0 +1,101 @@
+menu "Nufront TL7689"
+	depends on ARCH_TL7689
+
+config MACH_TL7689_PAD_TEST
+	bool "Nufront TL7689 Pad Test Board"
+	select ARM_GIC
+	select PL330
+	select HAVE_PATA_PLATFORM
+	select NUSMART_PL330_DMA
+	select ARCH_SPARSEMEM_ENABLE if CPU_V7 && \
+		!TL7689_HIGH_PHYS_OFFSET && MMU
+	select ZONE_DMA if SPARSEMEM
+	help
+	  Include support for the Nufront TL7689 Pad Test Board.
+
+config MACH_TL7689_PAD_REF
+	bool "Nufront TL7689 Pad Ref Board"
+	select ARM_GIC
+	select PL330
+	select HAVE_PATA_PLATFORM
+	select ARCH_SPARSEMEM_ENABLE if CPU_V7 && \
+		!TL7689_HIGH_PHYS_OFFSET && MMU
+	select ZONE_DMA if SPARSEMEM
+	help
+	  Include support for the Nufront TL7689 Pad Ref Board.
+
+config MACH_TL7689_PHONE_TEST
+	bool "Nufront TL7689 Phone Test Board"
+	select ARM_GIC
+	select HAVE_PATA_PLATFORM
+	select ARCH_SPARSEMEM_ENABLE if CPU_V7 && \
+		!TL7689_HIGH_PHYS_OFFSET && MMU
+	select ZONE_DMA if SPARSEMEM
+	help
+	  Include support for the Nufront TL7689 Phone Test Board.
+
+config MACH_TL7689_PHONE_REF
+	bool "Nufront TL7689 Phone Ref Board"
+	select ARM_GIC
+	select HAVE_PATA_PLATFORM
+	select ARCH_SPARSEMEM_ENABLE if CPU_V7 && \
+		!TL7689_HIGH_PHYS_OFFSET && MMU
+	select ZONE_DMA if SPARSEMEM
+	help
+	  Include support for the Nufront TL7689 Phone Ref Board.
+
+config TL7689_HIGH_PHYS_OFFSET
+	bool "High physical base address for the TL7689 platform"
+	depends on MMU 
+	default y
+	help
+	  TL7689 board has the RAM available at 0x80000000, 
+	  2046MB of which being mirrored at 0x80000000. 
+
+config NUSMART_PL330_DMA
+	bool
+	select PL330
+	help
+	  NUSMART DMA API Driver for PL330 DMAC.
+
+choice
+	prompt "TL7689 chip class"
+	depends on ARCH_TL7689
+        default CHIP_NORMAL_NU7
+
+config CHIP_NORMAL_NU7
+	bool "Nu7 Normal"
+	select CLASS_NORMAL_NU7
+	help
+	  Select chip class as normal.
+
+config CHIP_HIGH_NU7
+	bool "Nu7 High"
+	select CLASS_HIGH_NU7
+	help
+	  Select chip class as high.
+
+config TL7689_EFUSE_SUPPORT
+        bool "tl7689 efuse support"
+        depends on ARCH_TL7689
+        help
+          TL7689 EFUSE Support
+
+endchoice
+
+config CLASS_NORMAL_NU7
+	bool
+config CLASS_HIGH_NU7
+	bool
+config CLASS_ULTRA_NU7
+	bool
+
+config NUSMART_CTS_BUG2509
+	bool "0002509: junit.framework.AssertionFailedError"
+	depends on RICOH583_AC_DETECT 
+	default y
+	help
+	 The testcase use posix timer which ID is CLOCK_THREAD_CPUTIME_ID 
+	 to calc interval, and add log trace , we can fixed this bug;	
+endmenu
+

@@ -130,6 +130,14 @@ config XPS_USB_HCD_XILINX
 		support both high speed and full speed devices, or high speed
 		devices only.
 
+config USB_EHCI_NS115
+	bool "Support for ns115 on-chip EHCI USB controller"
+	depends on USB_EHCI_HCD
+	select USB_EHCI_ROOT_HUB_TT
+	---help---
+	  Variation of ARC USB block used in nusmart chips.
+
+
 config USB_FSL_MPH_DR_OF
 	tristate
 
@@ -303,6 +311,17 @@ config USB_OHCI_HCD
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ohci-hcd.
+
+
+config USB_OHCI_NS115
+	bool "OHCI support for ns115 on-chip ohci USB controller"
+	depends on USB_OHCI_HCD
+	default y
+	---help---
+	  Enables support for the USB controller on the ns2816
+	  chip.  If unsure, say Y.
+
+
 
 config USB_OHCI_HCD_OMAP1
 	bool "OHCI support for OMAP1/2 chips"

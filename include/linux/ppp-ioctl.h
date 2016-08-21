@@ -12,7 +12,7 @@
 
 #include <linux/types.h>
 #include <linux/compiler.h>
-
+#define PPP_MTU  1500
 /*
  * Bit definitions for flags argument to PPPIOCGFLAGS/PPPIOCSFLAGS.
  */

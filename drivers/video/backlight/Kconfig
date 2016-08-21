@@ -86,6 +86,13 @@ config LCD_PLATFORM
 	  This driver provides a platform-device registered LCD power
 	  control interface.
 
+config LCD_PWRCTRL
+	tristate "LCD panel power control"
+	help
+	  Say y here, if you have a lcd panel that allows reset and vcc to be
+	  controlled by the host system, and which does not use a serial command
+	  interface (such as i2c or spi) or memory-mapped-io interface.
+
 config LCD_TOSA
 	tristate "Sharp SL-6000 LCD Driver"
 	depends on SPI && MACH_TOSA
@@ -319,6 +326,14 @@ config BACKLIGHT_ADP8870
 
 	  To compile this driver as a module, choose M here: the module will
 	  be called adp8870_bl.
+
+config BACKLIGHT_NS115
+	tristate "NS115 PWL-based LCD Backlight"
+	depends on BACKLIGHT_CLASS_DEVICE && ARCH_NS115
+	help
+	  This driver controls the LCD backlight level and power for
+	  the PWL module of NS115 processors.  Say Y if your board
+	  uses this hardware.
 
 config BACKLIGHT_88PM860X
 	tristate "Backlight Driver for 88PM8606 using WLED"

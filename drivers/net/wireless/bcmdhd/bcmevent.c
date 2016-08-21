@@ -20,7 +20,7 @@
  *      Notwithstanding the above, under no circumstances may you combine this
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmevent.c 327460 2012-04-13 18:38:41Z $
+ * $Id: bcmevent.c 370587 2012-11-22 09:32:38Z $
  */
 
 #include <typedefs.h>
@@ -29,7 +29,7 @@
 #include <proto/bcmeth.h>
 #include <proto/bcmevent.h>
 
-#if WLC_E_LAST != 94
+#if WLC_E_LAST != 107
 #error "You need to add an entry to bcmevent_names[] for the new event"
 #endif
 
@@ -98,6 +98,10 @@ const bcmevent_name_t bcmevent_names[] = {
 	{ WLC_E_ACTION_FRAME_RX, "ACTION_FRAME_RX" },
 	{ WLC_E_ACTION_FRAME_COMPLETE, "ACTION_FRAME_COMPLETE" },
 #endif
+#ifdef BCMWAPI_WAI
+	{ WLC_E_WAI_STA_EVENT, "WAI_STA_EVENT" },
+	{ WLC_E_WAI_MSG, "WAI_MSG" },
+#endif /* BCMWAPI_WAI */
 #if 0 && (NDISVER >= 0x0620)
 	{ WLC_E_PRE_ASSOC_IND, "ASSOC_RECV" },
 	{ WLC_E_PRE_REASSOC_IND, "REASSOC_RECV" },
@@ -110,10 +114,6 @@ const bcmevent_name_t bcmevent_names[] = {
 	{ WLC_E_ACTION_FRAME_RX_NDIS, "WLC_E_ACTION_FRAME_RX_NDIS" },
 	{ WLC_E_AUTH_REQ, "WLC_E_AUTH_REQ" },
 #endif
-#ifdef BCMWAPI_WAI
-	{ WLC_E_WAI_STA_EVENT, "WAI_STA_EVENT" },
-	{ WLC_E_WAI_MSG, "WAI_MSG" },
-#endif /* BCMWAPI_WAI */
 	{ WLC_E_ESCAN_RESULT, "WLC_E_ESCAN_RESULT" },
 	{ WLC_E_ACTION_FRAME_OFF_CHAN_COMPLETE, "WLC_E_AF_OFF_CHAN_COMPLETE" },
 #ifdef WLP2P
@@ -143,6 +143,9 @@ const bcmevent_name_t bcmevent_names[] = {
 #ifdef WLTDLS
 	{ WLC_E_TDLS_PEER_EVENT, "TDLS_PEER_EVENT" },
 #endif /* WLTDLS */
+	{ WLC_E_SERVICE_FOUND, "SERVICE_FOUND" },
+	{ WLC_E_P2PO_ADD_DEVICE, "P2PO_DEV_FOUND" },
+	{ WLC_E_P2PO_DEL_DEVICE, "P2PO_DEV_LOST" },
 };
 
 const int bcmevent_names_size = ARRAYSIZE(bcmevent_names);

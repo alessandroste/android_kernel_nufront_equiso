@@ -86,7 +86,6 @@ struct machine_desc * __init setup_machine_fdt(unsigned int dt_phys)
 	/* check device tree validity */
 	if (be32_to_cpu(devtree->magic) != OF_DT_HEADER)
 		return NULL;
-
 	/* Search the mdescs for the 'best' compatible value match */
 	initial_boot_params = devtree;
 	dt_root = of_get_flat_dt_root();

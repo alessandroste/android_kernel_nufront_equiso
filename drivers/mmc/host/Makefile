@@ -3,6 +3,7 @@
 #
 
 obj-$(CONFIG_MMC_ARMMMCI)	+= mmci.o
+obj-$(CONFIG_MMC_NS115_EVA)     += evatronix_sdio_host.o
 obj-$(CONFIG_MMC_PXA)		+= pxamci.o
 obj-$(CONFIG_MMC_IMX)		+= imxmmc.o
 obj-$(CONFIG_MMC_MXC)		+= mxcmmc.o

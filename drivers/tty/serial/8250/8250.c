@@ -41,6 +41,7 @@
 #ifdef CONFIG_SPARC
 #include <linux/sunserialcore.h>
 #endif
+#include <linux/clk.h>
 
 #include <asm/io.h>
 #include <asm/irq.h>
@@ -281,6 +282,13 @@ static const struct serial8250_config uart_config[] = {
 		.tx_loadsz	= 64,
 		.fcr		= UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_10,
 		.flags		= UART_CAP_FIFO | UART_CAP_AFE | UART_CAP_EFR,
+	},
+	[PORT_NF_16550A] = {
+		.name		= "NF_16550A",
+		.fifo_size	= 64,
+		.tx_loadsz	= 64,
+		.fcr		= UART_FCR_ENABLE_FIFO | UART_FCR_R_TRIG_10,
+		.flags		= UART_CAP_FIFO | UART_CAP_AFE,
 	},
 };
 
@@ -1487,6 +1495,9 @@ unsigned int serial8250_modem_status(struct uart_8250_port *up)
 	struct uart_port *port = &up->port;
 	unsigned int status = serial_in(up, UART_MSR);
 
+	if (up->port.type == PORT_NF_16550A)
+		return UART_MSR_CTS;
+
 	status |= up->msr_saved_flags;
 	up->msr_saved_flags = 0;
 	if (status & UART_MSR_ANY_DELTA && up->ier & UART_IER_MSI &&
@@ -2298,6 +2309,9 @@ serial8250_do_set_termios(struct uart_port *port, struct ktermios *termios,
 		up->mcr &= ~UART_MCR_AFE;
 		if (termios->c_cflag & CRTSCTS)
 			up->mcr |= UART_MCR_AFE;
+
+		if (up->port.type == PORT_NF_16550A)
+			up->mcr |= UART_MCR_RTS;
 	}
 
 	/*
@@ -2623,6 +2637,9 @@ static void serial8250_config_port(struct uart_port *port, int flags)
 
 	/* if access method is AU, it is a 16550 with a quirk */
 	if (port->type == PORT_16550A && port->iotype == UPIO_AU)
+		up->bugs |= UART_BUG_NOMSR;
+
+	if (up->port.type == PORT_NF_16550A)
 		up->bugs |= UART_BUG_NOMSR;
 
 	if (port->type != PORT_UNKNOWN && flags & UART_CONFIG_IRQ)
@@ -3253,6 +3270,11 @@ EXPORT_SYMBOL(serial8250_unregister_port);
 static int __init serial8250_init(void)
 {
 	int ret;
+
+	//added by Li Le for Bluetooth
+	struct clk *fclk = clk_get(NULL, "ns115_uart2");
+	clk_set_rate(fclk, 32000000);
+	//end
 
 	if (nr_uarts > UART_NR)
 		nr_uarts = UART_NR;

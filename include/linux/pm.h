@@ -34,7 +34,8 @@
 extern void (*pm_idle)(void);
 extern void (*pm_power_off)(void);
 extern void (*pm_power_off_prepare)(void);
-
+extern void disable_hlt(void);
+extern void enable_hlt(void);
 /*
  * Device power management
  */

@@ -206,7 +206,7 @@ config VECTORS_BASE
 
 config ARM_PATCH_PHYS_VIRT
 	bool "Patch physical to virtual translations at runtime" if EMBEDDED
-	default y
+#	default y
 	depends on !XIP_KERNEL && MMU
 	depends on !ARCH_REALVIEW || !SPARSEMEM
 	help
@@ -300,6 +300,62 @@ config ARCH_REALVIEW
 	select NEED_MACH_MEMORY_H
 	help
 	  This enables support for ARM Ltd RealView boards.
+
+config ARCH_NS115
+	bool "Nufront NS115"
+	select ARM_AMBA
+	select CLKDEV_LOOKUP
+	select HAVE_MACH_CLKDEV
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select GENERIC_GPIO
+	select ARCH_REQUIRE_GPIOLIB
+	select HAVE_CLK
+	select HAVE_SMP
+	select ARM_SMP_TWD
+	select MIGHT_HAVE_CACHE_L2X0
+	#select ARCH_HAS_BARRIERS if CACHE_L2X0
+	select ARCH_HAS_CPUFREQ
+	#select ARCH_HAS_CPU_IDLE_WAIT
+
+	select MFD_CORE
+        select USB_ARCH_HAS_EHCI
+        select USB_ARCH_HAS_OHCI
+
+	#select ARCH_USES_GETTIMEOFFSET
+	select NEED_MACH_IO_H
+	select NEED_MACH_MEMORY_H
+
+	help
+	  This enables support for NUFRONT Ltd NS115 boards.
+
+config ARCH_TL7689
+	bool "Nufront TL7689"
+	select ARM_AMBA
+	select CLKDEV_LOOKUP
+	select HAVE_MACH_CLKDEV
+	select GENERIC_TIME
+	select GENERIC_CLOCKEVENTS
+	select GENERIC_GPIO
+	select ARCH_REQUIRE_GPIOLIB
+	select HAVE_CLK
+	select HAVE_SMP
+	select ARM_SMP_TWD
+	select MIGHT_HAVE_CACHE_L2X0
+	#select ARCH_HAS_BARRIERS if CACHE_L2X0
+	select ARCH_HAS_CPUFREQ
+	#select ARCH_HAS_CPU_IDLE_WAIT
+
+	select MFD_CORE
+        select USB_ARCH_HAS_EHCI
+        select USB_ARCH_HAS_OHCI
+
+	#select ARCH_USES_GETTIMEOFFSET
+	select NEED_MACH_IO_H
+	select NEED_MACH_MEMORY_H
+
+	help
+	  This enables support for NUFRONT Ltd TL7689 boards.
 
 config ARCH_VERSATILE
 	bool "ARM Ltd. Versatile family"
@@ -1129,6 +1185,11 @@ source "arch/arm/mach-vt8500/Kconfig"
 
 source "arch/arm/mach-w90x900/Kconfig"
 
+source "arch/arm/mach-ns115/Kconfig"
+
+source "arch/arm/mach-tl7689/Kconfig"
+
+
 # Definitions to make life easier
 config ARCH_ACORN
 	bool
@@ -1516,7 +1577,7 @@ config SMP
 		 MACH_REALVIEW_PB11MP || MACH_REALVIEW_PBX || ARCH_OMAP4 || \
 		 ARCH_EXYNOS4 || ARCH_TEGRA || ARCH_U8500 || ARCH_VEXPRESS_CA9X4 || \
 		 ARCH_MSM_SCORPIONMP || ARCH_SHMOBILE || ARCH_VEXPRESS_CA15X4 || \
-		 ARCH_VEXPRESS_CA5S || ARCH_OMAP5
+		 ARCH_VEXPRESS_CA5S || ARCH_OMAP5 || ARCH_NS115 || ARCH_TL7689
 	select USE_GENERIC_SMP_HELPERS
 	select HAVE_ARM_SCU if !ARCH_MSM_SCORPIONMP
 	help
@@ -1625,6 +1686,12 @@ config HOTPLUG_CPU
 	help
 	  Say Y here to experiment with turning CPUs off and on.  CPUs
 	  can be controlled through /sys/devices/system/cpu.
+
+config AUTO_HOTPLUG
+        bool "Auto hotplug CPUs for NS115 (EXPERIMENTAL)"
+        depends on SMP && HOTPLUG && (ARCH_TL7689 || ARCH_NS115) && EXPERIMENTAL
+        help
+          Say Y here to experiment with auto turning CPUs off and on.
 
 config LOCAL_TIMERS
 	bool "Use local timer interrupts"
@@ -1807,7 +1874,7 @@ config LEDS
 		   ARCH_OMAP || ARCH_P720T || ARCH_PXA_IDP || \
 		   ARCH_SA1100 || ARCH_SHARK || ARCH_VERSATILE || \
 		   ARCH_AT91 || ARCH_DAVINCI || \
-		   ARCH_KS8695 || MACH_RD88F5182 || ARCH_REALVIEW
+		   ARCH_KS8695 || MACH_RD88F5182 || ARCH_REALVIEW || ARCH_NS115 || ARCH_TL7689
 	help
 	  If you say Y here, the LEDs on your machine will be used
 	  to provide useful information about your current system status.

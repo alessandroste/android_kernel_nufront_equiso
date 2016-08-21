@@ -12,6 +12,16 @@ menuconfig INPUT_MISC
 
 if INPUT_MISC
 
+config INPUT_RICOH583_PWRKEY
+	tristate "ricoh583 ONKEY support"
+	depends on MFD_RICOH583
+	help
+	  Support the ONKEY of ricoh583 PMICs as an input device
+	  reporting power button status.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called ricoh583-pwrkey.
+
 config INPUT_88PM860X_ONKEY
 	tristate "88PM860x ONKEY support"
 	depends on MFD_88PM860X
@@ -325,6 +335,13 @@ config INPUT_KXTJ9
 
 	  To compile this driver as a module, choose M here: the module will
 	  be called kxtj9.
+
+config INPUT_KXTJ9_INT
+	tristate "KXTJ9 as interrupt mode"
+	depends on I2C && SYSFS && INPUT_KXTJ9
+	help
+	If you say yes here you get support for the Kionix KXTJ9 digital tri-axis accelerometer.
+	This driver can also be built as a module. If so, the module will be called kxtj9 as interrupt mode.
 
 config INPUT_KXTJ9_POLLED_MODE
 	bool "Enable polling mode support"

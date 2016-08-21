@@ -52,6 +52,7 @@
 struct secondary_data secondary_data;
 
 enum ipi_msg_type {
+	IPI_WAKE_CPU1 = 1,
 	IPI_TIMER = 2,
 	IPI_RESCHEDULE,
 	IPI_CALL_FUNC,
@@ -589,6 +590,10 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		__inc_irq_stat(cpu, ipi_irqs[ipinr - IPI_TIMER]);
 
 	switch (ipinr) {
+	/* added by Li Le for waking up CPU1 */
+	case IPI_WAKE_CPU1:
+		break;
+
 	case IPI_TIMER:
 		irq_enter();
 		ipi_timer();
@@ -662,7 +667,7 @@ void smp_send_stop(void)
 	if (num_online_cpus() > 1)
 		pr_warning("SMP: failed to stop secondary CPUs\n");
 
-	smp_kill_cpus(&mask);
+	//smp_kill_cpus(&mask);
 }
 
 /*

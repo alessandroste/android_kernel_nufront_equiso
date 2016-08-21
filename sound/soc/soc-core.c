@@ -867,7 +867,7 @@ static int soc_bind_dai_link(struct snd_soc_card *card, int num)
 	}
 
 	if (!rtd->cpu_dai) {
-		dev_dbg(card->dev, "CPU DAI %s not registered\n",
+		dev_err(card->dev, "CPU DAI %s not registered\n",
 			dai_link->cpu_dai_name);
 		return -EPROBE_DEFER;
 	}
@@ -898,14 +898,14 @@ static int soc_bind_dai_link(struct snd_soc_card *card, int num)
 		}
 
 		if (!rtd->codec_dai) {
-			dev_dbg(card->dev, "CODEC DAI %s not registered\n",
+			dev_err(card->dev, "CODEC DAI %s not registered\n",
 				dai_link->codec_dai_name);
 			return -EPROBE_DEFER;
 		}
 	}
 
 	if (!rtd->codec) {
-		dev_dbg(card->dev, "CODEC %s not registered\n",
+		dev_err(card->dev, "CODEC %s not registered\n",
 			dai_link->codec_name);
 		return -EPROBE_DEFER;
 	}
@@ -929,7 +929,7 @@ static int soc_bind_dai_link(struct snd_soc_card *card, int num)
 		rtd->platform = platform;
 	}
 	if (!rtd->platform) {
-		dev_dbg(card->dev, "platform %s not registered\n",
+		dev_err(card->dev, "platform %s not registered\n",
 			dai_link->platform_name);
 		return -EPROBE_DEFER;
 	}
@@ -1735,7 +1735,7 @@ static int soc_probe(struct platform_device *pdev)
 
 	ret = snd_soc_register_card(card);
 	if (ret != 0) {
-		dev_err(&pdev->dev, "Failed to register card\n");
+		dev_err(&pdev->dev, "Failed to register card: %d\n", ret);
 		return ret;
 	}
 
@@ -1973,11 +1973,14 @@ EXPORT_SYMBOL_GPL(snd_soc_free_ac97_codec);
 unsigned int snd_soc_read(struct snd_soc_codec *codec, unsigned int reg)
 {
 	unsigned int ret;
-
+#ifdef CONFIG_SND_NUSMART_SOC_NOCODEC
+	        ret = 0;
+#else
 	ret = codec->read(codec, reg);
 	dev_dbg(codec->dev, "read %x => %x\n", reg, ret);
 	trace_snd_soc_reg_read(codec, reg, ret);
 
+#endif
 	return ret;
 }
 EXPORT_SYMBOL_GPL(snd_soc_read);
@@ -1985,9 +1988,13 @@ EXPORT_SYMBOL_GPL(snd_soc_read);
 unsigned int snd_soc_write(struct snd_soc_codec *codec,
 			   unsigned int reg, unsigned int val)
 {
+#ifdef CONFIG_SND_NUSMART_SOC_NOCODEC
+	        return 0;
+#else
 	dev_dbg(codec->dev, "write %x = %x\n", reg, val);
 	trace_snd_soc_reg_write(codec, reg, val);
 	return codec->write(codec, reg, val);
+#endif
 }
 EXPORT_SYMBOL_GPL(snd_soc_write);
 
@@ -2613,6 +2620,49 @@ int snd_soc_put_volsw(struct snd_kcontrol *kcontrol,
 	return err;
 }
 EXPORT_SYMBOL_GPL(snd_soc_put_volsw);
+
+/**
+ * snd_soc_put_volsw_scale - single mixer put callback
+ * @kcontrol: mixer control
+ * @ucontrol: control element information
+ *
+ * Callback to set the value of a single mixer control.
+ *
+ * The scale is limited by user_max
+ * Returns 0 for success.
+ */
+int snd_soc_put_volsw_scale(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	unsigned int reg = mc->reg;
+	unsigned int shift = mc->shift;
+	unsigned int rshift = mc->rshift;
+	int max = mc->max;
+	int platform_max = mc->platform_max;
+	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int invert = mc->invert;
+	unsigned int val, val2, val_mask;
+
+	val = (ucontrol->value.integer.value[0] & mask);
+	if(val > platform_max)
+		val = platform_max;
+	if (invert)
+		val = max - val;
+	val_mask = mask << shift;
+	val = val << shift;
+	if (shift != rshift) {
+		val2 = (ucontrol->value.integer.value[1] & mask);
+		if (invert)
+			val2 = max - val2;
+		val_mask |= mask << rshift;
+		val |= val2 << rshift;
+	}
+	return snd_soc_update_bits_locked(codec, reg, val_mask, val);
+}
+EXPORT_SYMBOL_GPL(snd_soc_put_volsw_scale);
 
 /**
  * snd_soc_info_volsw_s8 - signed mixer info callback

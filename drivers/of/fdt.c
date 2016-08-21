@@ -8,7 +8,6 @@
  * modify it under the terms of the GNU General Public License
  * version 2 as published by the Free Software Foundation.
  */
-
 #include <linux/kernel.h>
 #include <linux/initrd.h>
 #include <linux/module.h>
@@ -711,7 +710,7 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
 void __init unflatten_device_tree(void)
 {
 	// !!! hack to avoid virtual mapping issue
-	return;
+//	return;
 
 	__unflatten_device_tree(initial_boot_params, &allnodes,
 				early_init_dt_alloc_memory_arch);

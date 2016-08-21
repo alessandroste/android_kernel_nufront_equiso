@@ -14,6 +14,14 @@ config MMC_ARMMMCI
 
 	  If unsure, say N.
 
+config MMC_NS115_EVA
+       tristate "NS115 Evatronix sdio host support"
+       depends on ARCH_NS115
+       help
+         This selects the NS115 Evatronix sdio host support.
+
+         If unsure, say N.
+
 config MMC_PXA
 	tristate "Intel PXA25x/26x/27x Multimedia Card Interface support"
 	depends on ARCH_PXA

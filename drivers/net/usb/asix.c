@@ -20,8 +20,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-// #define	DEBUG			// error path messages, extra info
-// #define	VERBOSE			// more; success messages
+ #define	DEBUG			// error path messages, extra info
+ #define	VERBOSE			// more; success messages
 
 #include <linux/module.h>
 #include <linux/kmod.h>
@@ -164,6 +164,13 @@
 #define MARVELL_CTRL_RXDELAY	0x0080
 
 #define	PHY_MODE_RTL8211CL	0x000C
+
+#define __NO_EEPROM__
+
+#ifdef __NO_EEPROM__
+static unsigned char  default_mac[6] = {0x00, 0x55, 0x7B, 0xB5, 0x45, 0x7A};
+static int is_mac_setup = 0;
+#endif
 
 /* This structure cannot exceed sizeof(unsigned long [5]) AKA 20 bytes */
 struct asix_data {
@@ -1044,6 +1051,16 @@ static const struct net_device_ops ax88772_netdev_ops = {
 	.ndo_do_ioctl		= asix_ioctl,
 	.ndo_set_rx_mode        = asix_set_multicast,
 };
+static void make_random_mac_addr()
+{
+	unsigned char node_id[6] = {0};
+
+    random_ether_addr(node_id);
+
+	printk(KERN_DEBUG "usbnet mac addr: %02x:%02x:%02x:%02x:%02x:%02x",
+			node_id[0], node_id[1], node_id[2], node_id[3], node_id[4], node_id[5]);
+	memcpy(default_mac, node_id, sizeof(node_id));
+}
 
 static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
 {
@@ -1062,7 +1079,12 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
 		dbg("Failed to read MAC address: %d", ret);
 		return ret;
 	}
-	memcpy(dev->net->dev_addr, buf, ETH_ALEN);
+
+	if(!usbnet_getcmdline_mac(dev->net->dev_addr))
+	{
+		memcpy(dev->net->dev_addr, default_mac, ETH_ALEN);
+		make_random_mac_addr();
+	}
 
 	/* Initialize MII structure */
 	dev->mii.dev = dev->net;
@@ -1101,7 +1123,6 @@ static int ax88772_bind(struct usbnet *dev, struct usb_interface *intf)
 	/* Read PHYID register *AFTER* the PHY was reset properly */
 	phyid = asix_get_phyid(dev);
 	dbg("PHYID=0x%08x", phyid);
-
 	/* Asix framing packs multiple eth frames into a 2K usb bulk transfer */
 	if (dev->driver_info->flags & FLAG_FRAMING_AX) {
 		/* hard_mtu  is still the default - the device does not support

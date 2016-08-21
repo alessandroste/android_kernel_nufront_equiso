@@ -263,13 +263,21 @@ static int __mmc_start_req(struct mmc_host *host, struct mmc_request *mrq)
 	return 0;
 }
 
+extern void evatronix_dbg(struct mmc_host *mmc);
+extern void soft_reset(struct evatronix_slot *slot, int flag);
+extern void config_slot(struct evatronix_slot *slot);
 static void mmc_wait_for_req_done(struct mmc_host *host,
 				  struct mmc_request *mrq)
 {
 	struct mmc_command *cmd;
+	struct evatronix_slot *slot = mmc_priv(host);
 
 	while (1) {
-		wait_for_completion(&mrq->completion);
+		if(wait_for_completion_timeout(&mrq->completion, 5*HZ) == 0 ) {
+			evatronix_dbg(host);
+			config_slot(slot);
+			mrq->cmd->error = -234;
+		}
 
 		cmd = mrq->cmd;
 		if (!cmd->error || !cmd->retries ||

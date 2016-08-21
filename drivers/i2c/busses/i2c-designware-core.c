@@ -65,10 +65,18 @@
 #define DW_IC_STATUS		0x70
 #define DW_IC_TXFLR		0x74
 #define DW_IC_RXFLR		0x78
+#define DW_IC_SDA_HOLD 		0x7c
 #define DW_IC_TX_ABRT_SOURCE	0x80
 #define DW_IC_COMP_PARAM_1	0xf4
 #define DW_IC_COMP_TYPE		0xfc
 #define DW_IC_COMP_TYPE_VALUE	0x44570140
+
+#define DW_IC_CON_MASTER		0x1
+#define DW_IC_CON_SPEED_STD		0x2
+#define DW_IC_CON_SPEED_FAST		0x4
+#define DW_IC_CON_10BITADDR_MASTER	0x10
+#define DW_IC_CON_RESTART_EN		0x20
+#define DW_IC_CON_SLAVE_DISABLE		0x40
 
 #define DW_IC_INTR_RX_UNDER	0x001
 #define DW_IC_INTR_RX_OVER	0x002
@@ -85,6 +93,7 @@
 
 #define DW_IC_INTR_DEFAULT_MASK		(DW_IC_INTR_RX_FULL | \
 					 DW_IC_INTR_TX_EMPTY | \
+					 DW_IC_INTR_RX_OVER | \
 					 DW_IC_INTR_TX_ABRT | \
 					 DW_IC_INTR_STOP_DET)
 
@@ -248,6 +257,7 @@ int i2c_dw_init(struct dw_i2c_dev *dev)
 	u32 input_clock_khz;
 	u32 hcnt, lcnt;
 	u32 reg;
+	u32 cycle;
 
 	input_clock_khz = dev->get_clk_rate_khz(dev);
 
@@ -272,12 +282,12 @@ int i2c_dw_init(struct dw_i2c_dev *dev)
 	/* Standard-mode */
 	hcnt = i2c_dw_scl_hcnt(input_clock_khz,
 				40,	/* tHD;STA = tHIGH = 4.0 us */
-				3,	/* tf = 0.3 us */
+				8,	/* tf = 0.3 us */
 				0,	/* 0: DW default, 1: Ideal */
 				0);	/* No offset */
 	lcnt = i2c_dw_scl_lcnt(input_clock_khz,
 				47,	/* tLOW = 4.7 us */
-				3,	/* tf = 0.3 us */
+				6,	/* tf = 0.3 us */
 				0);	/* No offset */
 	dw_writel(dev, hcnt, DW_IC_SS_SCL_HCNT);
 	dw_writel(dev, lcnt, DW_IC_SS_SCL_LCNT);
@@ -300,6 +310,11 @@ int i2c_dw_init(struct dw_i2c_dev *dev)
 	/* Configure Tx/Rx FIFO threshold levels */
 	dw_writel(dev, dev->tx_fifo_depth - 1, DW_IC_TX_TL);
 	dw_writel(dev, 0, DW_IC_RX_TL);
+
+	/* Calculate cycle time, the unit is ns */
+	cycle = 1000000 / input_clock_khz;
+	/* Set sda hold time as 200 ns */
+	dw_writel(dev, 200/cycle, DW_IC_SDA_HOLD);
 
 	/* configure the i2c master */
 	dw_writel(dev, dev->master_cfg , DW_IC_CON);
@@ -325,10 +340,23 @@ static int i2c_dw_wait_bus_not_busy(struct dw_i2c_dev *dev)
 	return 0;
 }
 
+static u32 get_max_divisor(u32 div, u32 base)
+{
+	u32 i;
+
+	for (i = base; i > 0; i--) {
+		if ((div % i) == 0)
+			break;
+	}
+
+	return i;
+}
+
 static void i2c_dw_xfer_init(struct dw_i2c_dev *dev)
 {
 	struct i2c_msg *msgs = dev->msgs;
 	u32 ic_con;
+	int i;
 
 	/* Disable the adapter */
 	dw_writel(dev, 0, DW_IC_ENABLE);
@@ -343,6 +371,16 @@ static void i2c_dw_xfer_init(struct dw_i2c_dev *dev)
 	else
 		ic_con &= ~DW_IC_CON_10BITADDR_MASTER;
 	dw_writel(dev, ic_con, DW_IC_CON);
+
+	/* Set receive FIFO threshold level */
+	for (i = 0; i < dev->msgs_num; i++) {
+		if (msgs[i].flags & I2C_M_RD) {
+			if (msgs[i].len > dev->rx_fifo_depth)
+				dw_writel(dev, get_max_divisor(msgs[i].len, dev->rx_fifo_depth - 2) - 1, DW_IC_RX_TL);
+			else
+				dw_writel(dev, msgs[i].len - 1, DW_IC_RX_TL);
+		}
+	}
 
 	/* Enable the adapter */
 	dw_writel(dev, 1, DW_IC_ENABLE);
@@ -474,7 +512,7 @@ static int i2c_dw_handle_tx_abort(struct dw_i2c_dev *dev)
 
 	if (abort_source & DW_IC_TX_ABRT_NOACK) {
 		for_each_set_bit(i, &abort_source, ARRAY_SIZE(abort_sources))
-			dev_dbg(dev->dev,
+			dev_err(dev->dev,
 				"%s: %s\n", __func__, abort_sources[i]);
 		return -EREMOTEIO;
 	}
@@ -522,7 +560,8 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	i2c_dw_xfer_init(dev);
 
 	/* wait for tx to complete */
-	ret = wait_for_completion_interruptible_timeout(&dev->cmd_complete, HZ);
+//	ret = wait_for_completion_interruptible_timeout(&dev->cmd_complete, HZ);
+	ret = wait_for_completion_timeout(&dev->cmd_complete, HZ);
 	if (ret == 0) {
 		dev_err(dev->dev, "controller timed out\n");
 		i2c_dw_init(dev);
@@ -648,6 +687,13 @@ irqreturn_t i2c_dw_isr(int this_irq, void *dev_id)
 		dw_writel(dev, 0, DW_IC_INTR_MASK);
 		goto tx_aborted;
 	}
+	if (stat & DW_IC_INTR_RX_OVER) {
+		dev_err(dev->dev, "i2c fifo overflow rx tl=%d,rxflr=%d,msg len=%d,txflr=%d\n",
+				readl(dev->base + DW_IC_RX_TL),readl(dev->base+DW_IC_RXFLR),dev->msgs[dev->msg_write_idx].len,
+				readl(dev->base + DW_IC_TXFLR));
+		dev->msg_err = -EINVAL;
+		goto tx_aborted;
+	}
 
 	if (stat & DW_IC_INTR_RX_FULL)
 		i2c_dw_read(dev);
@@ -655,6 +701,15 @@ irqreturn_t i2c_dw_isr(int this_irq, void *dev_id)
 	if (stat & DW_IC_INTR_TX_EMPTY)
 		i2c_dw_xfer_msg(dev);
 
+	if (stat & DW_IC_INTR_STOP_DET) {
+		if (dev->status & STATUS_READ_IN_PROGRESS)
+			i2c_dw_read(dev);
+
+		if (dev->status !=0) {
+			dev_err(dev->dev, "i2c transfer was stopped unexpected\n");
+			dev->msg_err = -EINVAL;
+		}
+	}
 	/*
 	 * No need to modify or disable the interrupt mask here.
 	 * i2c_dw_xfer_msg() will take care of it according to
@@ -703,3 +758,90 @@ u32 i2c_dw_read_comp_param(struct dw_i2c_dev *dev)
 {
 	return dw_readl(dev, DW_IC_COMP_PARAM_1);
 }
+
+void dw_i2c_send_bytes(void __iomem * i2c_base, unsigned char * out_buf, unsigned int len)
+{
+	unsigned int i = 1;
+
+	writel(out_buf[0], i2c_base + DW_IC_DATA_CMD);
+	while((readl(i2c_base + DW_IC_RAW_INTR_STAT) & DW_IC_INTR_START_DET) != DW_IC_INTR_START_DET);
+
+	while(i < len && (readl(i2c_base + DW_IC_RAW_INTR_STAT) & DW_IC_INTR_STOP_DET) != DW_IC_INTR_STOP_DET) {
+                if((readl(i2c_base + DW_IC_RAW_INTR_STAT) & DW_IC_INTR_TX_EMPTY) == DW_IC_INTR_TX_EMPTY) {
+			writel(out_buf[i], i2c_base + DW_IC_DATA_CMD);
+			i++;
+		}
+        }
+        while((readl(i2c_base + DW_IC_RAW_INTR_STAT) & DW_IC_INTR_STOP_DET) != DW_IC_INTR_STOP_DET);
+
+	readl(i2c_base + DW_IC_CLR_INTR);
+        readl(i2c_base + DW_IC_CLR_RX_UNDER);
+        readl(i2c_base + DW_IC_CLR_RX_OVER);
+        readl(i2c_base + DW_IC_CLR_TX_OVER);
+        readl(i2c_base + DW_IC_CLR_RD_REQ);
+        readl(i2c_base + DW_IC_CLR_TX_ABRT);
+	readl(i2c_base + DW_IC_CLR_RX_DONE);
+        readl(i2c_base + DW_IC_CLR_ACTIVITY);
+        readl(i2c_base + DW_IC_CLR_STOP_DET);
+        readl(i2c_base + DW_IC_CLR_START_DET);
+        readl(i2c_base + DW_IC_CLR_GEN_CALL);
+}
+
+void dw_i2c_smbus_read(void __iomem * i2c_base, unsigned char * out_buf, unsigned int wlen, unsigned char *rbuf, unsigned rlen)
+{
+	unsigned int i = 1, j = 0;
+
+	writel(out_buf[0], i2c_base + DW_IC_DATA_CMD);
+        while((readl(i2c_base + DW_IC_RAW_INTR_STAT) & DW_IC_INTR_START_DET) != DW_IC_INTR_START_DET);
+
+	while(i < wlen ) {
+		if((readl(i2c_base + DW_IC_RAW_INTR_STAT) & DW_IC_INTR_TX_EMPTY) == DW_IC_INTR_TX_EMPTY) {
+			writel(out_buf[i], i2c_base + DW_IC_DATA_CMD);
+			i++;
+		}
+	}
+
+	writel(0x100, i2c_base + DW_IC_DATA_CMD);
+	i = 0;
+	j = 0;
+	while(i < rlen && (readl(i2c_base + DW_IC_RAW_INTR_STAT) & DW_IC_INTR_STOP_DET) != DW_IC_INTR_STOP_DET) {
+
+		if(j < rlen && (readl(i2c_base + DW_IC_RAW_INTR_STAT) & DW_IC_INTR_TX_EMPTY) == DW_IC_INTR_TX_EMPTY) {
+			writel(0x100, i2c_base + DW_IC_DATA_CMD);
+			j++;
+		}
+
+		if((readl(i2c_base + DW_IC_STATUS) & 0x08) == 0x08) //1: Receive FIFO is not empty
+			rbuf[i++] = (unsigned char)readl(i2c_base + DW_IC_DATA_CMD);
+	}
+
+        while((readl(i2c_base + DW_IC_RAW_INTR_STAT) & DW_IC_INTR_STOP_DET) != DW_IC_INTR_STOP_DET);
+	readl(i2c_base + DW_IC_CLR_INTR);
+        readl(i2c_base + DW_IC_CLR_RX_UNDER);
+        readl(i2c_base + DW_IC_CLR_RX_OVER);
+        readl(i2c_base + DW_IC_CLR_TX_OVER);
+        readl(i2c_base + DW_IC_CLR_RD_REQ);
+        readl(i2c_base + DW_IC_CLR_TX_ABRT);
+	readl(i2c_base + DW_IC_CLR_RX_DONE);
+        readl(i2c_base + DW_IC_CLR_ACTIVITY);
+        readl(i2c_base + DW_IC_CLR_STOP_DET);
+        readl(i2c_base + DW_IC_CLR_START_DET);
+        readl(i2c_base + DW_IC_CLR_GEN_CALL);
+}
+
+void dw_i2c_master_init(void __iomem * i2c_base, unsigned char slv_addr)
+{
+	unsigned int ic_con = 0;
+
+	writel(0, i2c_base + DW_IC_ENABLE);
+	ic_con = DW_IC_CON_MASTER | DW_IC_CON_SLAVE_DISABLE |
+		DW_IC_CON_RESTART_EN | DW_IC_CON_SPEED_STD;
+
+        writel(ic_con , i2c_base + DW_IC_CON);
+        writel(slv_addr, i2c_base + DW_IC_TAR);
+        writel(1, i2c_base + DW_IC_ENABLE);
+}
+
+EXPORT_SYMBOL(dw_i2c_master_init);
+EXPORT_SYMBOL(dw_i2c_send_bytes);
+EXPORT_SYMBOL(dw_i2c_smbus_read);

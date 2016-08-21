@@ -1577,6 +1577,42 @@ int usbnet_resume (struct usb_interface *intf)
 }
 EXPORT_SYMBOL_GPL(usbnet_resume);
 
+#define __NO_EEPROM__
+#ifdef __NO_EEPROM__
+static unsigned char  default_mac[6] = {0x00, 0x55, 0x7B, 0xB5, 0x45, 0x7A};
+static int is_mac_setup = 0;
+
+int usbnet_getcmdline_mac(unsigned char* mac)
+{
+	memcpy(mac, default_mac, ETH_ALEN);
+	return is_mac_setup;
+}
+
+EXPORT_SYMBOL_GPL(usbnet_getcmdline_mac);
+
+static int __init eth_mac_setup(char* str)
+{
+        unsigned char usbethmac[6]= {0};
+        int i;
+
+        /* Parse the colon separated Ethernet station address */
+        for (i = 0; i <  ETH_ALEN; i++) {
+                unsigned int tmp;
+                if (sscanf(str + 3*i, "%2x", &tmp) != 1) {
+                        printk(KERN_WARNING "Malformed station address");
+                        return 0;
+                }
+                usbethmac[i] = (char)tmp;
+        }
+		is_mac_setup = 1;
+        memcpy(default_mac,usbethmac,6);
+		printk("usbnet mac addr: %02x:%02x:%02x:%02x:%02x:%02x",
+				default_mac[0], default_mac[1], default_mac[2], default_mac[3], default_mac[4], default_mac[5]);
+        return 1;
+}
+
+__setup("usbethmac=", eth_mac_setup);
+#endif
 
 /*-------------------------------------------------------------------------*/
 

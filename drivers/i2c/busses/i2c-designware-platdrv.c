@@ -39,6 +39,7 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include "i2c-designware-core.h"
+#include <mach/i2c.h>
 
 static struct i2c_algorithm i2c_dw_algo = {
 	.master_xfer	= i2c_dw_xfer,
@@ -54,6 +55,7 @@ static int __devinit dw_i2c_probe(struct platform_device *pdev)
 	struct dw_i2c_dev *dev;
 	struct i2c_adapter *adap;
 	struct resource *mem, *ioarea;
+	struct nusmart_i2c_platform_data *i2c_bus_data;
 	int irq, r;
 
 	/* NOTE: driver uses the static register mapping */
@@ -88,7 +90,29 @@ static int __devinit dw_i2c_probe(struct platform_device *pdev)
 	dev->irq = irq;
 	platform_set_drvdata(pdev, dev);
 
-	dev->clk = clk_get(&pdev->dev, NULL);
+	i2c_bus_data = (struct nusmart_i2c_platform_data*)dev->dev->platform_data;
+#if CONFIG_OF
+	int *speed = NULL, *id = NULL;
+	if(pdev->dev.of_node != NULL) {
+		speed = of_get_property(pdev->dev.of_node,"speed",NULL);
+		if(speed != NULL)
+			i2c_bus_data->speed = be32_to_cpup(speed);
+		printk(KERN_ERR "i2c bus speed = %d\n",i2c_bus_data->speed);
+
+		id = of_get_property(pdev->dev.of_node,"id",NULL);
+		if(id)
+			pdev->id = be32_to_cpup(id);
+		else {
+			dev_err(&pdev->dev,"error i2c id \n");
+			goto err_free_mem;
+		}
+	} else {
+			dev_err(&pdev->dev,"can not get i2c info from dts \n");
+			goto err_free_mem;
+	}
+
+#endif
+	dev->clk = clk_get(&pdev->dev, i2c_bus_data->clk_id);
 	dev->get_clk_rate_khz = i2c_dw_get_clk_rate_khz;
 
 	if (IS_ERR(dev->clk)) {
@@ -104,8 +128,18 @@ static int __devinit dw_i2c_probe(struct platform_device *pdev)
 		I2C_FUNC_SMBUS_BYTE_DATA |
 		I2C_FUNC_SMBUS_WORD_DATA |
 		I2C_FUNC_SMBUS_I2C_BLOCK;
-	dev->master_cfg =  DW_IC_CON_MASTER | DW_IC_CON_SLAVE_DISABLE |
-		DW_IC_CON_RESTART_EN | DW_IC_CON_SPEED_FAST;
+
+	dev->master_cfg = DW_IC_CON_MASTER | DW_IC_CON_SLAVE_DISABLE |
+		DW_IC_CON_RESTART_EN;
+
+	switch (i2c_bus_data->speed) {
+		case I2C_SPEED_FAST:
+			dev->master_cfg |= DW_IC_CON_SPEED_FAST;
+			break;
+		case I2C_SPEED_STD:
+			dev->master_cfg |= DW_IC_CON_SPEED_STD;
+			break;
+	}
 
 	dev->base = ioremap(mem->start, resource_size(mem));
 	if (dev->base == NULL) {
@@ -190,9 +224,28 @@ static int __devexit dw_i2c_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static int dw_i2c_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct dw_i2c_dev *dev = platform_get_drvdata(pdev);
+
+	i2c_dw_disable_int(dev);
+
+	return 0;
+}
+
+static int dw_i2c_resume(struct platform_device *pdev)
+{
+	struct dw_i2c_dev *dev = platform_get_drvdata(pdev);
+
+	i2c_dw_init(dev);
+	i2c_dw_disable_int(dev);
+
+	return 0;
+}
+
 #ifdef CONFIG_OF
 static const struct of_device_id dw_i2c_of_match[] = {
-	{ .compatible = "snps,designware-i2c", },
+	{ .compatible = "nufront,designware-i2c", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, dw_i2c_of_match);
@@ -203,6 +256,8 @@ MODULE_ALIAS("platform:i2c_designware");
 
 static struct platform_driver dw_i2c_driver = {
 	.remove		= __devexit_p(dw_i2c_remove),
+	.suspend	= dw_i2c_suspend,
+	.resume		= dw_i2c_resume,
 	.driver		= {
 		.name	= "i2c_designware",
 		.owner	= THIS_MODULE,

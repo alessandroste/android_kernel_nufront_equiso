@@ -20,7 +20,7 @@
 * software in any way with any other Broadcom software provided under a license
 * other than the GPL, without Broadcom's express prior written consent.
 *
-* $Id: dhd_custom_gpio.c 291086 2011-10-21 01:17:24Z $
+* $Id: dhd_custom_gpio.c 353167 2012-08-24 22:11:30Z $
 */
 
 #include <typedefs.h>
@@ -38,6 +38,9 @@
 #define WL_TRACE(x)
 
 #ifdef CUSTOMER_HW
+#if defined(CUSTOMER_OOB)
+extern int bcm_wlan_get_oob_irq(void);
+#endif
 extern  void bcm_wlan_power_off(int);
 extern  void bcm_wlan_power_on(int);
 #endif /* CUSTOMER_HW */
@@ -53,7 +56,7 @@ int wifi_get_irq_number(unsigned long *irq_flags_ptr) { return -1; }
 int wifi_get_mac_addr(unsigned char *buf) { return -1; }
 void *wifi_get_country_code(char *ccode) { return NULL; }
 #endif /* CONFIG_WIFI_CONTROL_FUNC */
-#endif /* CUSTOMER_HW2 */
+#endif
 
 #if defined(OOB_INTR_ONLY)
 
@@ -65,6 +68,9 @@ extern int sdioh_mmc_irq(int irq);
 #include <mach/gpio.h>
 #endif
 
+#ifdef NUFRONT_OOB
+#include <linux/gpio.h>
+#endif
 /* Customer specific Host GPIO defintion  */
 static int dhd_oob_gpio_num = -1;
 
@@ -85,16 +91,32 @@ MODULE_PARM_DESC(dhd_oob_gpio_num, "DHD oob gpio number");
 int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 {
 	int  host_oob_irq = 0;
-
-#ifdef CUSTOMER_HW2
+        int ret;
+#if defined(CUSTOMER_HW2)
 	host_oob_irq = wifi_get_irq_number(irq_flags_ptr);
 
+
+#elif defined(NUFRONT_OOB)
+	printk("GPIO(WL_HOST_WAKE_UP) = %d\n", 0);
+
+	ret = gpio_request(0, "WL_HOST_WAKEUP");
+	/* use wakeup domain GPIO3 LOW_BAT_INIT instead */
+	//ret = gpio_request(3, "WL_HOST_WAKEUP");
+
+	if(ret < 0)
+		printk(KERN_ERR "request WL_HOST_WAKEUP failed\n");
+
+
+	host_oob_irq = gpio_to_irq(0);
+	gpio_direction_input(0);
+	printk("host_oob_irq: %d \r\n", host_oob_irq);
+//	host_oob_irq = bcm_wlan_get_oob_irq();
 #else
 #if defined(CUSTOM_OOB_GPIO_NUM)
 	if (dhd_oob_gpio_num < 0) {
 		dhd_oob_gpio_num = CUSTOM_OOB_GPIO_NUM;
 	}
-#endif /* CUSTOMER_HW2 */
+#endif /* CUSTOMER_OOB_GPIO_NUM */
 
 	if (dhd_oob_gpio_num < 0) {
 		WL_ERROR(("%s: ERROR customer specific Host GPIO is NOT defined \n",
@@ -112,11 +134,10 @@ int dhd_customer_oob_irq_map(unsigned long *irq_flags_ptr)
 	host_oob_irq = gpio_to_irq(dhd_oob_gpio_num);
 	gpio_direction_input(dhd_oob_gpio_num);
 #endif /* CUSTOMER_HW */
-#endif /* CUSTOMER_HW2 */
-
+#endif
 	return (host_oob_irq);
 }
-#endif /* defined(OOB_INTR_ONLY) */
+#endif
 
 /* Customer function to control hw specific wlan gpios */
 void
@@ -129,9 +150,10 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 #ifdef CUSTOMER_HW
 			bcm_wlan_power_off(2);
 #endif /* CUSTOMER_HW */
-#ifdef CUSTOMER_HW2
+#if defined(CUSTOMER_HW2)
 			wifi_set_power(0, 0);
 #endif
+			mdelay(100);
 			WL_ERROR(("=========== WLAN placed in RESET ========\n"));
 		break;
 
@@ -141,9 +163,10 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 #ifdef CUSTOMER_HW
 			bcm_wlan_power_on(2);
 #endif /* CUSTOMER_HW */
-#ifdef CUSTOMER_HW2
+#if defined(CUSTOMER_HW2)
 			wifi_set_power(1, 0);
 #endif
+			mdelay(100);
 			WL_ERROR(("=========== WLAN going back to live  ========\n"));
 		break;
 
@@ -153,6 +176,7 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 #ifdef CUSTOMER_HW
 			bcm_wlan_power_off(1);
 #endif /* CUSTOMER_HW */
+			WL_ERROR(("=========== WLAN placed in POWER OFF ========\n"));
 		break;
 
 		case WLAN_POWER_ON:
@@ -160,9 +184,10 @@ dhd_customer_gpio_wlan_ctrl(int onoff)
 				__FUNCTION__));
 #ifdef CUSTOMER_HW
 			bcm_wlan_power_on(1);
-			/* Lets customer power to get stable */
-			OSL_DELAY(200);
 #endif /* CUSTOMER_HW */
+			/* Lets customer power to get stable */
+			mdelay(100);
+			WL_ERROR(("=========== WLAN placed in POWER ON ========\n"));
 		break;
 	}
 }

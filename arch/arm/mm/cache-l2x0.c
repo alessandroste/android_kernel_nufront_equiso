@@ -349,6 +349,68 @@ static void l2x0_unlock(u32 cache_id)
 	}
 }
 
+static void l2x0_enable(__u32 aux_val, __u32 aux_mask)
+{
+	u32 aux;
+
+	/*
+	 * Check if l2x0 controller is already enabled.
+	 * If you are booting from non-secure mode
+	 * accessing the below registers will fault.
+	 */
+	if (!(readl_relaxed(l2x0_base + L2X0_CTRL) & 1)) {
+
+		/* l2x0 controller is disabled */
+
+		aux = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
+		aux &= aux_mask;
+		aux |= aux_val;
+		writel_relaxed(aux, l2x0_base + L2X0_AUX_CTRL);
+
+		l2x0_inv_all();
+
+		/* enable L2X0 */
+		writel_relaxed(1, l2x0_base + L2X0_CTRL);
+	}
+}
+
+static void l2x0_restart(void)
+{
+	unsigned long flags;
+	local_irq_save(flags);
+	l2x0_enable(0, ~0ul);
+	local_irq_restore(flags);
+}
+
+static void l2x0_shutdown(void)
+{
+	unsigned long flags;
+
+	BUG_ON(num_online_cpus() > 1);
+
+	local_irq_save(flags);
+
+	if (readl_relaxed(l2x0_base + L2X0_CTRL) & 1) {
+		int m;
+		/* lockdown all ways, all masters to prevent new line
+		 * allocation during maintenance */
+		for (m=0; m<8; m++) {
+			writel_relaxed(0xffff, l2x0_base + L2X0_LOCKDOWN_WAY_D0 + (m*8));
+			writel_relaxed(0xffff, l2x0_base + L2X0_LOCKDOWN_WAY_I0 + (m*8));
+		}
+		l2x0_flush_all();
+		writel_relaxed(0, l2x0_base + L2X0_CTRL);
+		dsb();
+		/* unlock cache ways */
+		for (m=0; m<8; m++) {
+			writel_relaxed(0, l2x0_base + L2X0_LOCKDOWN_WAY_D0 + (m*8));
+			writel_relaxed(0, l2x0_base + L2X0_LOCKDOWN_WAY_I0 + (m*8));
+		}
+	}
+
+	local_irq_restore(flags);
+}
+
 void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 {
 	u32 aux;
@@ -359,9 +421,6 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 
 	l2x0_cache_id = readl_relaxed(l2x0_base + L2X0_CACHE_ID);
 	aux = readl_relaxed(l2x0_base + L2X0_AUX_CTRL);
-
-	aux &= aux_mask;
-	aux |= aux_val;
 
 	/* Determine the number of ways */
 	switch (l2x0_cache_id & L2X0_CACHE_ID_PART_MASK) {
@@ -376,6 +435,13 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 		sync_reg_offset = L2X0_DUMMY_REG;
 #endif
 		outer_cache.set_debug = pl310_set_debug;
+
+		/*
+		 * Set bit 22 in the auxiliary control register. If this bit
+		 * is cleared, PL310 treats Normal Shared Non-cacheable
+		 * accesses as Cacheable no-allocate.
+		 */
+		aux_val |= 1 << 22;
 		break;
 	case L2X0_CACHE_ID_PART_L210:
 		l2x0_ways = (aux >> 13) & 0xf;
@@ -407,6 +473,9 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 		/* Make sure that I&D is not locked down when starting */
 		l2x0_unlock(l2x0_cache_id);
 
+		aux &= aux_mask;
+		aux |= aux_val;
+
 		/* l2x0 controller is disabled */
 		writel_relaxed(aux, l2x0_base + L2X0_AUX_CTRL);
 
@@ -422,6 +491,8 @@ void __init l2x0_init(void __iomem *base, u32 aux_val, u32 aux_mask)
 	outer_cache.clean_range = l2x0_clean_range;
 	outer_cache.flush_range = l2x0_flush_range;
 	outer_cache.sync = l2x0_cache_sync;
+	outer_cache.shutdown = l2x0_shutdown;
+	outer_cache.restart = l2x0_restart;
 	outer_cache.flush_all = l2x0_flush_all;
 	outer_cache.inv_all = l2x0_inv_all;
 	outer_cache.disable = l2x0_disable;

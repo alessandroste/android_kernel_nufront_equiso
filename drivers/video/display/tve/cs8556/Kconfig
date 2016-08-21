@@ -1,0 +1,17 @@
+#
+# TV Encoder CS8556 drivers configuration
+#
+
+config CS8556_TVOUT
+	bool "CS8556 TV Encoder Support"
+	depends on NUSMART_TVENCODER
+	help
+		Support Chrontel CS8556 TV Encoder.
+
+config CS8556_TVOUT_VGA
+	bool "Support CS8556 VGA Output"
+	depends on CS8556_TVOUT
+			
+config CS8556_TVOUT_CVBS
+	bool "Support CS8556 CVBS Output"
+	depends on CS8556_TVOUT

@@ -482,6 +482,9 @@ config USB_VL600
 	  4G modem from Verizon:
 
 	  http://ubuntuforums.org/showpost.php?p=10589647&postcount=17
-
+config USB_NET_SR9800
+		tristate "SR9800 usb lan"
+		help
+				Select this if you want to use an a SR9800 usb lan
 
 endmenu

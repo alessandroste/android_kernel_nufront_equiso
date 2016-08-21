@@ -307,4 +307,48 @@ config AB8500_BATTERY_THERM_ON_BATCTRL
 	help
 	  Say Y to enable battery temperature measurements using
 	  thermistor connected on BATCTRL ADC.
+
+config NS115_BATTERY
+	tristate "battery and charger support for ns115 platfrom"
+	help
+	  Say Y here to enable support for Ns115 Battery Interface.
+
+config NS115_ADC_GAUGE
+	tristate "simulate gas-gauge by software with ADC"
+	depends on NS115_BATTERY
+	default y
+	help
+		Say Y here to enable support for Ns115 ADC gauge calculate capacity.
+
+config NS115_CHG_SUSPEND
+	tristate "suspend when charging by AC"
+	depends on NS115_BATTERY && WAKELOCK
+	default n
+	help
+		Say Y here to enable support for suspned when charging by AC.
+
+config BATTERY_RICOH583
+	tristate "RICOH583 battery driver"
+	depends on MFD_RICOH583 && NS115_BATTERY
+	help
+	  Say Y here to enable support for ricoh583 Battery Interface.
+
+config BQ24170_CHARGER
+	tristate "charger support for bq24170"
+	depends on NS115_BATTERY
+	help
+	  Say Y here to enable support for bq24170 charger Interface.
+
+config RICOH583_AC_DETECT
+	tristate "detect the AC charger from ricoh583 PMIC"
+	depends on NS115_BATTERY && MFD_RICOH583
+	help
+	  Say Y here to enable support for ac charger detect Interface.
+
+config FSA880_USB_DETECT
+	tristate "detect the USB charger from FSA880"
+	depends on NS115_BATTERY
+	help
+	  Say Y here to enable support for USB charger detect Interface.
+
 endif # POWER_SUPPLY

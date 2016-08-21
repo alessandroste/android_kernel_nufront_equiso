@@ -116,6 +116,38 @@ rtc_sysfs_show_hctosys(struct device *dev, struct device_attribute *attr,
 		return sprintf(buf, "0\n");
 }
 
+ssize_t rtc_sysfs_hctosys(struct device *dev, struct device_attribute *attr,
+			 const char *buf, size_t count)
+{
+	int err = -ENODEV;
+	struct rtc_time tm;
+	struct timespec tv = {
+		.tv_nsec = NSEC_PER_SEC >> 1,
+	};
+	struct rtc_device *rtc = to_rtc_device(dev);
+	err = rtc_read_time(rtc, &tm);
+	if (err) {
+		dev_err(rtc->dev.parent,
+				"hctosys: unable to read the hardware clock\n");
+		goto hctosys_failed;
+	}
+
+	err = rtc_valid_tm(&tm);
+	if (err) {
+		dev_err(rtc->dev.parent,
+				"hctosys: invalid date/time\n");
+		goto hctosys_failed;
+	}
+
+	rtc_tm_to_time(&tm, &tv.tv_sec);
+	do_settimeofday(&tv);
+
+	return count;
+hctosys_failed:
+	return count;
+
+}
+
 static struct device_attribute rtc_attrs[] = {
 	__ATTR(name, S_IRUGO, rtc_sysfs_show_name, NULL),
 	__ATTR(date, S_IRUGO, rtc_sysfs_show_date, NULL),
@@ -123,7 +155,7 @@ static struct device_attribute rtc_attrs[] = {
 	__ATTR(since_epoch, S_IRUGO, rtc_sysfs_show_since_epoch, NULL),
 	__ATTR(max_user_freq, S_IRUGO | S_IWUSR, rtc_sysfs_show_max_user_freq,
 			rtc_sysfs_set_max_user_freq),
-	__ATTR(hctosys, S_IRUGO, rtc_sysfs_show_hctosys, NULL),
+	__ATTR(hctosys, S_IRUGO, rtc_sysfs_show_hctosys, rtc_sysfs_hctosys),
 	{ },
 };
 

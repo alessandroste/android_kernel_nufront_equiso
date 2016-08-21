@@ -31,6 +31,20 @@ obj-$(CONFIG_USB_MV_UDC)	+= mv_udc.o
 mv_udc-y			:= mv_udc_core.o
 obj-$(CONFIG_USB_CI13XXX_MSM)	+= ci13xxx_msm.o
 obj-$(CONFIG_USB_FUSB300)	+= fusb300_udc.o
+obj-$(CONFIG_USB_DESIGN_WARE)	+= dwc/dwc_otg_driver.o \
+				   dwc/dwc_otg_cil.o \
+				   dwc/dwc_otg_pcd.o \
+				   dwc/dwc_otg_hcd.o \
+				   dwc/dwc_otg_adp.o \
+				   dwc/dwc_common_linux.o \
+				   dwc/dwc_otg_cil_intr.o \
+				   dwc/dwc_otg_pcd_intr.o \
+				   dwc/dwc_otg_hcd_ddma.o \
+				   dwc/dwc_otg_hcd_queue.o \
+				   dwc/dwc_otg_hcd_intr.o \
+				   dwc/dwc_otg_pcd_linux.o \
+				   dwc/dwc_otg_hcd_linux.o \
+				   dwc/dwc_otg_attr.o \
 
 #
 # USB gadget drivers

@@ -1,0 +1,13 @@
+#
+# TV Encoder drivers configuration
+#
+
+menuconfig NUSMART_TVENCODER
+	bool "Second display Encoder support"
+    help
+       Support Nusmart TV Encoder if you say y here.
+
+source "drivers/video/display/tve/lcd/Kconfig"
+source "drivers/video/display/tve/ch7026/Kconfig"
+source "drivers/video/display/tve/cs8556/Kconfig"
+

@@ -989,6 +989,13 @@ MODULE_AUTHOR (DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE ("GPL");
 
+
+#ifdef CONFIG_USB_OHCI_NS115
+#include "ohci-nusmart.c"
+#define PLATFORM_DRIVER 	ohci_hcd_nusmart_driver
+#endif
+
+
 #ifdef CONFIG_PCI
 #include "ohci-pci.c"
 #define PCI_DRIVER		ohci_pci_driver

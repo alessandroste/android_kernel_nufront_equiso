@@ -300,10 +300,10 @@ static int scsi_check_sense(struct scsi_cmnd *scmd)
 			 * additional sense code and qualifier so as
 			 * not to squash media change unit attention.
 			 */
-			if (sshdr.asc != 0x28 || sshdr.ascq != 0x00) {
+		//	if (sshdr.asc != 0x28 || sshdr.ascq != 0x00) {
 				scmd->device->expecting_cc_ua = 0;
 				return NEEDS_RETRY;
-			}
+		//	}
 		}
 		/*
 		 * if the device is in the process of becoming ready, we

@@ -15,7 +15,6 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
@@ -28,6 +27,9 @@
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
 #include <linux/vmalloc.h>
+#include <linux/gpio.h>
+#include <linux/clk.h>
+#include <linux/delay.h>
 
 #include <media/soc_camera.h>
 #include <media/v4l2-common.h>
@@ -566,6 +568,7 @@ static int soc_camera_open(struct file *file)
 				goto einitvb;
 		}
 		v4l2_ctrl_handler_setup(&icd->ctrl_handler);
+		dev_dbg(icd->pdev, "camera device ctrl setup\n");
 	}
 
 	file->private_data = icd;
@@ -835,6 +838,75 @@ static int soc_camera_streamoff(struct file *file, void *priv,
 	return 0;
 }
 
+static int soc_camera_queryctrl(struct file *file, void *priv,
+				struct v4l2_queryctrl *qc)
+{
+	struct soc_camera_device *icd = file->private_data;
+	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
+	int i;
+
+	WARN_ON(priv != file->private_data);
+
+	if (!qc->id)
+		return -EINVAL;
+
+	/* First check host controls */
+	for (i = 0; i < ici->ops->num_controls; i++)
+		if (qc->id == ici->ops->controls[i].id) {
+			memcpy(qc, &(ici->ops->controls[i]),
+				sizeof(*qc));
+			return 0;
+		}
+
+	/* Then device controls */
+	for (i = 0; i < icd->ops->num_controls; i++)
+		if (qc->id == icd->ops->controls[i].id) {
+			memcpy(qc, &(icd->ops->controls[i]),
+				sizeof(*qc));
+			return 0;
+		}
+
+	return -EINVAL;
+}
+
+static int soc_camera_g_ctrl(struct file *file, void *priv,
+			     struct v4l2_control *ctrl)
+{
+	struct soc_camera_device *icd = file->private_data;
+	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
+	int ret;
+
+	WARN_ON(priv != file->private_data);
+
+	if (ici->ops->get_ctrl) {
+		ret = ici->ops->get_ctrl(icd, ctrl);
+		if (ret != -ENOIOCTLCMD)
+			return ret;
+	}
+
+	return v4l2_subdev_call(sd, core, g_ctrl, ctrl);
+}
+
+static int soc_camera_s_ctrl(struct file *file, void *priv,
+			     struct v4l2_control *ctrl)
+{
+	struct soc_camera_device *icd = file->private_data;
+	struct soc_camera_host *ici = to_soc_camera_host(icd->parent);
+	struct v4l2_subdev *sd = soc_camera_to_subdev(icd);
+	int ret;
+
+	WARN_ON(priv != file->private_data);
+
+	if (ici->ops->set_ctrl) {
+		ret = ici->ops->set_ctrl(icd, ctrl);
+		if (ret != -ENOIOCTLCMD)
+			return ret;
+	}
+
+	return v4l2_subdev_call(sd, core, s_ctrl, ctrl);
+}
+
 static int soc_camera_cropcap(struct file *file, void *fh,
 			      struct v4l2_cropcap *a)
 {
@@ -988,7 +1060,7 @@ static int soc_camera_init_i2c(struct soc_camera_device *icd,
 		goto ei2cga;
 	}
 
-	icl->board_info->platform_data = icl;
+	icl->board_info->platform_data = icd;
 
 	subdev = v4l2_i2c_new_subdev_board(&ici->v4l2_dev, adap,
 				icl->board_info, NULL);
@@ -1151,12 +1223,15 @@ static int soc_camera_probe(struct soc_camera_device *icd)
 	return 0;
 
 esdpwr:
+	dev_err(icd->pdev, "Probing esdpwr err\n");
 	video_unregister_device(icd->vdev);
 evidstart:
+	dev_err(icd->pdev, "Probing evidstart err\n");
 	mutex_unlock(&icd->video_lock);
 	soc_camera_free_user_formats(icd);
 eiufmt:
 ectrl:
+	dev_err(icd->pdev, "Probing eiufmt err\n");
 	if (icl->board_info) {
 		soc_camera_free_i2c(icd);
 	} else {
@@ -1165,15 +1240,20 @@ ectrl:
 	}
 enodrv:
 eadddev:
+	dev_err(icd->pdev, "Probing enodrv err\n");
 	video_device_release(icd->vdev);
 	icd->vdev = NULL;
 evdc:
+	dev_err(icd->pdev, "Probing evdc err\n");
 	soc_camera_power_off(icd, icl);
 epower:
+	dev_err(icd->pdev, "Probing epower err\n");
 	ici->ops->remove(icd);
 eadd:
+	dev_err(icd->pdev, "Probing eadd err\n");
 	regulator_bulk_free(icl->num_regulators, icl->regulators);
 ereg:
+	dev_err(icd->pdev, "Probing ereg err\n");
 	v4l2_ctrl_handler_free(&icd->ctrl_handler);
 	return ret;
 }
@@ -1318,7 +1398,6 @@ int soc_camera_host_register(struct soc_camera_host *ici)
 
 	mutex_init(&ici->host_lock);
 	scan_add_host(ici);
-
 	return 0;
 
 edevreg:
@@ -1399,6 +1478,9 @@ static const struct v4l2_ioctl_ops soc_camera_ioctl_ops = {
 	.vidioc_prepare_buf	 = soc_camera_prepare_buf,
 	.vidioc_streamon	 = soc_camera_streamon,
 	.vidioc_streamoff	 = soc_camera_streamoff,
+	.vidioc_queryctrl	 = soc_camera_queryctrl,
+	.vidioc_g_ctrl		 = soc_camera_g_ctrl,
+	.vidioc_s_ctrl		 = soc_camera_s_ctrl,
 	.vidioc_cropcap		 = soc_camera_cropcap,
 	.vidioc_g_crop		 = soc_camera_g_crop,
 	.vidioc_s_crop		 = soc_camera_s_crop,
@@ -1429,7 +1511,6 @@ static int video_dev_create(struct soc_camera_device *icd)
 	vdev->tvnorms		= V4L2_STD_UNKNOWN;
 	vdev->ctrl_handler	= &icd->ctrl_handler;
 	vdev->lock		= &icd->video_lock;
-
 	icd->vdev = vdev;
 
 	return 0;
@@ -1458,12 +1539,226 @@ static int soc_camera_video_start(struct soc_camera_device *icd)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+struct gpio_property {
+	u32     gpio;
+	u32     value;
+};
+
+int of_get_gpio_property(const struct device_node *node, const char *name, struct gpio_property *gpio)
+{
+	int *list;
+	int size = 0;
+
+	list = of_get_property(node,name,&size);
+	if (list == NULL || size/sizeof(*list) != 2) {
+		pr_info("%s get property %s err\n",__func__,name);
+		return -1;
+	}
+	gpio->gpio = be32_to_cpup(list);
+	if (!gpio_is_valid(gpio->gpio)) {
+		pr_info("%s property %s gpio %d valid\n",__func__,name,gpio->gpio);
+		return -1;
+	}
+	gpio->value = be32_to_cpup(list+1);
+	if(gpio->value > 1) {
+		pr_info("%s property %s gpio %d or value %d valid\n",__func__,name,gpio->gpio,
+				 gpio->value);
+		return -1;
+	}
+	return 0;
+}
+
+static int soc_camera_sensor_power(struct device* dev, int on)
+{
+	struct device_node *of_node;
+	struct gpio_property power_on_gpio = {0};
+	struct gpio_property rst_gpio = {0};
+	struct gpio_property i2c_con_gpio = {0};
+	int clk_rate;
+	char *clk_id;
+	int ret = 0;
+	struct clk *clk;
+	void *value;
+
+	of_node = dev->of_node;
+	if (of_node == NULL) {
+		dev_warn(dev, "can not find ofnode of soc-camera of node\n");
+		return -1;
+	}
+
+	if(of_get_gpio_property(of_node,"power_on",&power_on_gpio) != 0) {
+		dev_warn(dev, "%s can not get power_on\n",__func__);
+		power_on_gpio.gpio = -1;
+	} else
+		dev_info(dev, "%s power_on_gpio = %d\n",__func__,power_on_gpio.gpio);
+
+	if(of_get_gpio_property(of_node,"reset",&rst_gpio) != 0) {
+		dev_warn(dev, "%s can not get reset\n",__func__);
+		rst_gpio.gpio = -1;
+	} else
+		dev_info(dev, "%s reset_gpio = %d\n",__func__,rst_gpio.gpio);
+
+	if(of_get_gpio_property(of_node,"i2c_connect",&i2c_con_gpio) != 0) {
+		dev_warn(dev, "%s can not get ic2 connect\n",__func__);
+		i2c_con_gpio.gpio = -1;
+	} else
+		dev_info(dev, "%s i2c_connect = %d\n",__func__,i2c_con_gpio);
+
+	if((value = of_get_property(of_node,"clk_id",NULL)) == NULL) {
+		dev_warn(dev, "%s can not get clk_id\n",__func__);
+		return NULL;
+	} else {
+		clk_id = value;
+		dev_info(dev, "%s clk_id = %s\n",__func__,clk_id);
+	}
+
+	if((value = of_get_property(of_node,"clk_rate",NULL)) == NULL) {
+		dev_warn(dev, "%s can not get clk rate\n",__func__);
+		return NULL;
+	} else {
+		clk_rate = be32_to_cpup(value);
+		dev_info(dev, "%s clk rate = %d\n",__func__,clk_rate);
+	}
+
+	gpio_request(power_on_gpio.gpio, "camera_power_on");
+	gpio_request(rst_gpio.gpio, "camera_rst");
+	gpio_request(i2c_con_gpio.gpio, "gc0308");
+
+	clk = clk_get(NULL, clk_id);
+	if (IS_ERR(clk)) {
+		ret = PTR_ERR(clk);
+		goto err_clk;
+	}
+
+	if (on) {
+		gpio_direction_output(i2c_con_gpio.gpio, i2c_con_gpio.value);
+		clk_enable(clk);
+		clk_set_rate(clk, clk_rate);
+		mdelay(2);
+		gpio_direction_output(power_on_gpio.gpio, power_on_gpio.value);
+		mdelay(2);
+		gpio_direction_output(rst_gpio.gpio, rst_gpio.value);
+		mdelay(2);
+	}
+	else {
+		gpio_direction_output(i2c_con_gpio.gpio, !i2c_con_gpio.value);
+		mdelay(2);
+		gpio_direction_output(power_on_gpio.gpio, !power_on_gpio.gpio);
+		mdelay(2);
+		gpio_direction_output(rst_gpio.gpio, !rst_gpio.gpio);
+		mdelay(2);
+		clk_disable(clk);
+	}
+
+	clk_put(clk);
+err_clk:
+	gpio_free(i2c_con_gpio.gpio);
+err_i2c_on:
+	gpio_free(rst_gpio.gpio);
+err_rst:
+	gpio_free(power_on_gpio.gpio);
+
+	return ret;
+}
+
+static void of_soc_camera_link_dump(struct soc_camera_link *icl)
+{
+	int i = 0;
+
+	pr_info("%s bus id =%d\n",__func__,icl->bus_id);
+	pr_info("%s i2c_adapter_id =%d\n",__func__,icl->i2c_adapter_id);
+	pr_info("%s num_regulators =%d\n",__func__,icl->num_regulators);
+	while (i < icl->num_regulators) {
+		pr_info("	regulator:%s\n",icl->regulators[i].supply);
+		i ++;
+	}
+	pr_info("%s i2c type =%s\n",__func__,icl->board_info->type);
+	pr_info("%s i2c addr =0x%x\n",__func__,icl->board_info->addr);
+
+}
+
+static struct soc_camera_link* of_soc_camera_create_link(struct device_node *of_node)
+{
+	const u32 *value = NULL;
+	struct i2c_board_info *camera_i2c_info = NULL;
+	struct soc_camera_link *icl;
+	struct regulator_bulk_data *camera_regulators = NULL;
+	unsigned int size,l,cplen;
+	char *list,*cp;
+	int i = 0;
+	if (of_node == NULL)
+		return NULL;
+
+	icl = kzalloc(sizeof(*icl),GFP_KERNEL);
+	camera_i2c_info = kzalloc(sizeof(*camera_i2c_info),GFP_KERNEL);
+
+	if ((value = of_get_property(of_node,"bus_id",NULL)) == NULL) {
+		pr_info("%s can not get bus id\n",__func__);
+		return NULL;
+	} else
+		icl->bus_id = be32_to_cpup(value);
+
+	if ((value = of_get_property(of_node,"i2c_adapter_id",NULL)) == NULL) {
+		pr_info("%s can not get i2c_adapter_id\n",__func__);
+		return NULL;
+	} else
+		icl->i2c_adapter_id = be32_to_cpup(value);
+
+	if ((value = of_get_property(of_node,"i2c_addr",NULL)) == NULL) {
+		pr_info("%s can not get i2c_addr\n",__func__);
+		return NULL;
+	} else
+		camera_i2c_info->addr = be32_to_cpup(value);
+
+	if ((value = of_get_property(of_node,"sensor_name",&size)) == NULL) {
+		pr_info("%s can not get sensor_name\n",__func__);
+		return NULL;
+	} else
+		strncpy(camera_i2c_info->type,value,(size < I2C_NAME_SIZE) ? size:I2C_NAME_SIZE);
+
+	list = of_get_property(of_node,"regulators",&size);
+	cplen = size;
+	cp = list;
+	while(cplen>0) {
+		l = strlen(cp) + 1;
+		cp += l;
+		cplen -=l;
+		icl->num_regulators ++;
+	}
+	camera_regulators = kzalloc(sizeof(*camera_regulators) * icl->num_regulators,GFP_KERNEL);
+	while (size > 0) {
+		camera_regulators[i].supply = list;
+		l = strlen(list) + 1;
+		list += l;
+		size -= l;
+		i ++;
+	}
+
+	icl->regulators = camera_regulators;
+	if ((value = of_get_property(of_node,"num_regulators",NULL)) == NULL) {
+		pr_info("%s can not get num_regulators\n",__func__);
+		return NULL;
+	} else
+		icl->num_regulators = be32_to_cpup(value);
+
+	icl->board_info = camera_i2c_info;
+	icl->power = soc_camera_sensor_power;
+
+	of_soc_camera_link_dump(icl);
+
+	return icl;
+}
+#endif
 static int __devinit soc_camera_pdrv_probe(struct platform_device *pdev)
 {
 	struct soc_camera_link *icl = pdev->dev.platform_data;
 	struct soc_camera_device *icd;
 	int ret;
 
+#ifdef CONFIG_OF
+	icl = of_soc_camera_create_link(pdev->dev.of_node);
+#endif
 	if (!icl)
 		return -EINVAL;
 
@@ -1510,11 +1805,22 @@ static int __devexit soc_camera_pdrv_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#if defined(CONFIG_OF)
+/* Match table for of_platform binding */
+static const struct of_device_id soc_camera_of_match[] __devinitconst = {
+	{ .compatible = "nufront,soc_camera", },
+	{},
+};
+MODULE_DEVICE_TABLE(of, soc_camera_of_match);
+#else
+#define soc_camera_of_match NULL
+#endif
 static struct platform_driver __refdata soc_camera_pdrv = {
 	.remove  = __devexit_p(soc_camera_pdrv_remove),
 	.driver  = {
 		.name	= "soc-camera-pdrv",
 		.owner	= THIS_MODULE,
+		.of_match_table = soc_camera_of_match,
 	},
 };
 

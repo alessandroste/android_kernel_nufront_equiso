@@ -668,7 +668,11 @@ static int gic_irq_domain_xlate(struct irq_domain *d,
 
 const struct irq_domain_ops gic_irq_domain_ops = {
 	.map = gic_irq_domain_map,
+#if 1
+	.xlate = irq_domain_xlate_onetwocell,
+#else
 	.xlate = gic_irq_domain_xlate,
+#endif
 };
 
 void __init gic_init_bases(unsigned int gic_nr, int irq_start,
@@ -742,7 +746,6 @@ void __init gic_init_bases(unsigned int gic_nr, int irq_start,
 			irq_start);
 		irq_base = irq_start;
 	}
-
 	gic->domain = irq_domain_add_legacy(node, gic_irqs, irq_base,
 				    hwirq_base, &gic_irq_domain_ops, gic);
 	if (WARN_ON(!gic->domain))

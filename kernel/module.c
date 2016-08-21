@@ -2546,6 +2546,7 @@ static int check_modinfo(struct module *mod, struct load_info *info)
 	int err;
 
 	/* This is allowed: modprobe --force will invalidate it. */
+#ifndef CONFIG_MODULE_IGNORE_MAGIC
 	if (!modmagic) {
 		err = try_to_force_load(mod, "bad vermagic");
 		if (err)
@@ -2555,7 +2556,7 @@ static int check_modinfo(struct module *mod, struct load_info *info)
 		       mod->name, modmagic, vermagic);
 		return -ENOEXEC;
 	}
-
+#endif
 	if (!get_modinfo(info, "intree"))
 		add_taint_module(mod, TAINT_OOT_MODULE);
 
