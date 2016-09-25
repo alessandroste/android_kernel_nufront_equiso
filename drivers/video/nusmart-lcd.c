@@ -703,11 +703,11 @@ static int nusmartfb_set_par(struct fb_info *fb)
 
 LCD_RESET:
 
-#ifdef CONFIG_MACH_NS115_STICK
-	if(is_fb_changed(fb) || hdmi_plugin || (!hdmi_state)) {
-#else
+//#ifdef CONFIG_MACH_NS115_STICK
+//	if(is_fb_changed(fb) || hdmi_plugin || (!hdmi_state)) {
+//#else
 	if(is_fb_changed(fb) || hdmi_plugin) {
-#endif
+//#endif
 		nusmart_clcd_decode(fb, &regs);
 		nusmart_clcd_disable(fb);
 
